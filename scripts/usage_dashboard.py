@@ -1405,6 +1405,20 @@ def refresh_all(quiet: bool = False):
         except Exception as e:
             errors.append(f"console_quota 异常: {type(e).__name__}: {e}")
 
+    # Step 1b: 自动续期即将过期的会话（>10h 时有头弹窗刷新）
+    try:
+        r2 = subprocess.run(
+            [sys.executable, str(cq), "--renew"],
+            capture_output=True, text=True, timeout=360)
+        renew_lines = (r2.stdout or "").strip().splitlines()
+        for line in renew_lines:
+            if "续期成功" in line:
+                _log_refresh(f"RENEW {line.strip()}")
+            elif "续期失败" in line or "异常" in line:
+                errors.append(f"renew: {line.strip()[:120]}")
+    except Exception as e:
+        errors.append(f"renew 异常: {type(e).__name__}")
+
     # Step 2: 本地留存
     try:
         refresh_store()

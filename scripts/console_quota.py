@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """控制台会话额度（可选组件；核心看板保持纯标准库，本文件独立依赖 playwright）
 
-适用：官方不给 key 可调额度接口、只认控制台登录态的服务（阿里百炼、智谱 BigModel）。
-机制（2026-09-25 实测定型）：
-  --login <ali|glm>   有头浏览器登录；登录生效瞬间立即导出会话 cookie 到
-                      data/<target>_cookies.json（此后任何失败都不需重扫）；随后自动取数。
-  --fetch <ali|glm|all>  无头注入 cookie → 打开用量/订阅页 → 捕获页面自身发出的
-                      quota 响应（不猜接口格式）→ 写 data/<target>_quota.json。
+适用：官方不给 key 可调额度接口、只认控制台登录态的服务（阿里百炼、智谱 BigModel、Kimi）。
+机制（2026-09-25 实测定型，2026-09-26 加自动续期）：
+  --login <target>       有头浏览器登录；登录生效瞬间导出 cookie；随后取数。
+  --fetch <target|all>   无头注入 cookie → 捕获 quota 响应 → 写 quota.json。
+  --renew [target|all]   检测即将过期的会话（>10h）→ 有头弹窗刷新 → 续期。
+                          如已完全过期（>12h），弹窗等待手动扫码（最长 5 分钟）。
+  会话续期原理：已登录的 profile 页面被有头浏览器再次访问时，服务端自动延长会话 cookie。
 安全：捕获黑名单（url 含 ApiKeysPlain 等回明文 key 的接口）一律不解析不落盘；
       不再落任何 raw 响应；cookie 文件为 bearer 凭据，仅本地、可删。
 """
@@ -365,6 +366,18 @@ def login(target):
             page.goto(t["login_url"], wait_until="domcontentloaded", timeout=60000)
             print(f"已打开 {target} 登录页：请完成登录（扫码/短信）…")
             print("登录一旦生效立即导出会话（之后任何情况都无需重扫），再自动取数。")
+            # 方案 B：尝试勾选"记住我"/"保持登录"，延长会话 TTL
+            try:
+                for sel in ['input[name*="remember"]', 'input[id*="remember"]',
+                            'input[type="checkbox"][class*="remember"]',
+                            'label:has-text("记住")', 'label:has-text("保持")']:
+                    el = page.query_selector(sel)
+                    if el and not el.is_checked():
+                        el.click()
+                        print(f"  已勾选 {sel}")
+                        break
+            except Exception:
+                pass
             deadline = time.time() + 300
             logged = False
             while time.time() < deadline:
@@ -478,6 +491,103 @@ def fetch(target):
     return result, None
 
 
+def needs_renewal(target):
+    """检测会话是否即将过期（距上次成功 fetch >10h）。"""
+    qf = DATA / f"{target}_quota.json"
+    if not qf.exists():
+        return True
+    try:
+        j = json.loads(qf.read_text(encoding="utf-8"))
+        ft = j.get("fetched_at")
+        if not ft:
+            return True
+        age = (datetime.now().astimezone().replace(tzinfo=None) -
+               datetime.strptime(ft, "%Y-%m-%d %H:%M:%S")).total_seconds()
+        return age > 10 * 3600
+    except Exception:
+        return True
+
+
+def renew_session(target):
+    """方案 C：有头弹窗续期。用已保存的 profile 打开一个有头浏览器窗口，
+    页面加载即触发服务端延长会话 cookie。如已过期则等待手动扫码（最长 5 分钟）。
+    返回 (result, err)。"""
+    from playwright.sync_api import sync_playwright
+    t = TARGETS[target]
+    with sync_playwright() as p:
+        ctx = p.chromium.launch_persistent_context(
+            str(DATA / f"{target}_profile"), headless=False,  # 有头 = 关键
+            channel=t.get("channel"),
+            viewport={"width": 980, "height": 720}, locale="zh-CN")
+        try:
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            page.goto(t["login_url"], wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(2000)
+
+            # 检查是否仍处于登录态
+            try:
+                probe = page.evaluate(t["probe"])
+                logged = _logged_in(target, probe)
+            except Exception:
+                logged = False
+
+            if logged:
+                # 会话仍有效，页面加载已刷新 cookie
+                _export(ctx, target)
+                result = PARSERS[target](_capture(page, target)) if target in PARSERS else None
+                if result is None and t.get("mode") == "self":
+                    result = parse_newapi_self(probe)
+                return result, None
+
+            # 会话已过期：提示手动登录，等待最长 5 分钟
+            print(f"会话已过期：请在弹出的浏览器中重新登录 {target}（等待最长 5 分钟）…")
+            deadline = time.time() + 300
+            while time.time() < deadline:
+                time.sleep(5)
+                try:
+                    probe = page.evaluate(t["probe"])
+                    if _logged_in(target, probe):
+                        _export(ctx, target)
+                        result = PARSERS[target](_capture(page, target)) if target in PARSERS else None
+                        if result is None and t.get("mode") == "self":
+                            result = parse_newapi_self(probe)
+                        return result, None
+                except Exception:
+                    continue
+            return None, f"{target} 续期等待超时(5 分钟无人扫码)"
+        finally:
+            ctx.close()
+
+
+def renew_all():
+    """检查全部会话源，续期即将过期的。返回 {target: (ok, err)}。"""
+    results = {}
+    for target in TARGETS:
+        cf = DATA / f"{target}_cookies.json"
+        pf = DATA / f"{target}_profile"
+        if target == "kimi" and not pf.exists():
+            continue
+        elif target != "kimi" and not cf.exists():
+            continue
+        if not needs_renewal(target):
+            continue
+        print(f"[renew] {target} 会话即将过期，启动有头续期…")
+        try:
+            result, err = renew_session(target)
+            if result:
+                (DATA / f"{target}_quota.json").write_text(
+                    json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+                results[target] = (True, None)
+                print(f"[renew] {target} 续期成功")
+            else:
+                results[target] = (False, err)
+                print(f"[renew] {target} 续期失败: {err}")
+        except Exception as e:
+            results[target] = (False, f"{type(e).__name__}: {e}")
+            print(f"[renew] {target} 续期异常: {e}")
+    return results
+
+
 def main():
     args = sys.argv[1:]
     quiet = "--quiet" in args
@@ -487,6 +597,9 @@ def main():
             targets.append(a)
         if a == "all":
             targets = list(TARGETS)
+    if "--renew" in args:
+        renew_all()
+        return
     if "--login" in args:
         for t in (targets or ["ali"]):
             res = login(t)
