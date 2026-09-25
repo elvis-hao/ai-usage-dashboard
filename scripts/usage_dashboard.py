@@ -1549,10 +1549,8 @@ OVERRIDE_CSS = """
 .card-dim{opacity:.7}
 .progressbg .progress-bar.bar-fill-subtle{background:rgba(244,244,245,.16)}
 table.table td.num,table.table th.num{text-align:right;font-variant-numeric:tabular-nums}
-.nav-tabs .nav-link{color:var(--tblr-secondary-color, #b3b3b3); border:none; border-bottom:2px solid transparent}
-.nav-tabs .nav-link.active{color:var(--tblr-primary, #e5e5e5); background:transparent; border-bottom-color:var(--tblr-primary, #e5e5e5); font-weight:700}
-.nav-tabs .nav-link:hover{color:var(--tblr-primary, #e5e5e5)}
 .tab-pane{display:none}.tab-pane.active{display:block}
+.panel{display:none}.panel.active{display:block}
 .banner-now{font-size:1.15rem; font-weight:700; color:var(--tblr-primary, #e5e5e5)}
 """
 
@@ -1561,13 +1559,13 @@ function showTab(name){
   document.querySelectorAll('.tab-pane').forEach(function(e){e.classList.remove('active')});
   document.getElementById('pane-'+name).classList.add('active');
   document.querySelectorAll('#tabs .nav-link').forEach(function(t){
-    t.classList.toggle('active', t.dataset.tab===name)});
+    t.classList.toggle('active', t.getAttribute('onclick').indexOf("'"+name+"'") >= 0)});
 }
 function showPeriod(p){
   document.querySelectorAll('.panel').forEach(function(e){e.classList.remove('active')});
   document.getElementById('panel-'+p).classList.add('active');
   document.querySelectorAll('#periods .nav-link').forEach(function(t){
-    t.classList.toggle('active', t.dataset.p===p)});
+    t.classList.toggle('active', t.getAttribute('onclick').indexOf("'"+p+"'") >= 0)});
 }
 window.addEventListener('DOMContentLoaded', function(){ showTab('overview'); showPeriod('today'); });
 """
@@ -1589,15 +1587,19 @@ def render_html() -> str:
         css_links = ('<link rel="stylesheet" '
                      'href="https://cdn.jsdelivr.net/npm/@tabler/css@1.5.0/dist/tabler.min.css">')
 
-    # 4 Tab nav
+    # 4 Tab nav（Tabler 官方 nav-tabs 结构）
     section_tabs = "".join(
-        f'<li class="nav-item"><a class="nav-link" data-tab="{t}" onclick="showTab(\'{t}\')">{l}</a></li>'
+        f'<li class="nav-item"><a class="nav-link{" active" if t == "overview" else ""}" '
+        f'onclick="showTab(\'{t}\'); return false;" href="#">{l}</a></li>'
         for t, l in [("overview", "概览"), ("policy", "政策"), ("links", "收藏夹"), ("details", "明细")])
+    section_tabs = f'<ul class="nav nav-tabs mb-4">{section_tabs}</ul>'
 
-    # Period tabs inside details pane
+    # Period tabs inside details pane（用 nav-pills，Tabler 官方示范）
     period_tabs = "".join(
-        f'<li class="nav-item"><a class="nav-link" data-p="{p}" onclick="showPeriod(\'{p}\')">{PERIOD_LABELS[p]}</a></li>'
+        f'<li class="nav-item"><a class="nav-link{" active" if p == "today" else ""}" '
+        f'onclick="showPeriod(\'{p}\'); return false;" href="#">{PERIOD_LABELS[p]}</a></li>'
         for p in PERIODS)
+    period_tabs = f'<ul class="nav nav-pills mb-3">{period_tabs}</ul>'
     panels = "".join(f'<div class="panel" id="panel-{p}">{_panel_html(p, periods_data[p])}</div>'
                      for p in PERIODS)
 
