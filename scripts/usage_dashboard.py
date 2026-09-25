@@ -875,8 +875,8 @@ def _newapi_site_balance(base: str, user: str, pw: str):
 
 
 def _newapi_billing(entry: dict):
-    """new-api 系中转：subscription 给 key 剩余配额(USD)，usage 给本月消费(美分→USD)；
-    若 extra_keys 配了站点账号，则加钱包余额（账户维度）。"""
+    """new-api 系中转：钱包余额（账户维度）= hard_limit_usd − 本月消费（实测 zzswitch 2410−2323.93=86.07 与钱包页一致）；
+    fallback：extra_keys cookie + New-Api-User 头；最后 key 维度限额。"""
     key = _resolve_key(entry.get("key_source"))
     if not key:
         return _fail(f"取不到 key（key_source={entry.get('key_source')}）")
@@ -899,35 +899,23 @@ def _newapi_billing(entry: dict):
     except Exception:
         pass
     unlimited = hard is not None and hard >= 1e8
-    wallet = None
-    # 1) 站点会话钱包（console_quota.py --login <id> 导出会话后 --fetch 写入）
-    qf = DATA_DIR / f'{entry.get("id")}_quota.json'
-    if qf.exists():
-        try:
-            k = json.loads(qf.read_text(encoding="utf-8"))
-            if k.get("kind") == "relay-site" and k.get("wallet_usd") is not None:
-                ft = datetime.strptime(k["fetched_at"], "%Y-%m-%d %H:%M:%S")
-                if (now_local().replace(tzinfo=None) - ft).total_seconds() < 12 * 3600:
-                    wallet = k["wallet_usd"]
-        except Exception:
-            pass
-    # 2) extra_keys 里粘贴的站点 Cookie 头（日常浏览器过 CF 的会话，httpOnly 也能带）
-    #    + New-Api-User 请求头（从 Go gob session cookie 解码或手动填写）
-    if wallet is None:
-        ck = extra_keys_cookie(entry.get("id"))
-        if ck:
-            ex2 = load_extra_keys()
-            uid = ex2.get(f'{entry.get("id")}_user_id', "")
-            wallet = _newapi_self_by_cookie(base, ck, user_id=uid)
-    # 3) 兜底：extra_keys 站点账号密码登录
-    if wallet is None:
-        ex = load_extra_keys()
-        su, sp = ex.get(f'{entry.get("id")}_user'), ex.get(f'{entry.get("id")}_pass')
-        if su and sp:
-            wallet = _newapi_site_balance(base, su, sp)
+
+    # Method 1: 公式钱包（hard − spend），仅对有限额 key 有效
+    if hard is not None and not unlimited and spend is not None:
+        wallet = round(hard - spend, 2)
+
+    # Method 2: cookie + New-Api-User 精确覆盖（无论公式是否算出都尝试）
+    ex2 = load_extra_keys()
+    ck = ex2.get(f'{entry.get("id")}_cookie', "")
+    uid = ex2.get(f'{entry.get("id")}_user_id', "")
+    if ck and uid:
+        precise = _newapi_self_by_cookie(base, ck, user_id=uid)
+        if precise is not None:
+            wallet = precise
+
     return {"ok": True, "kind": "relay", "unlimited": unlimited,
             "remaining_usd": None if unlimited else hard,
-            "month_spend_usd": spend, "wallet_usd": wallet,
+            "wallet_usd": wallet, "month_spend_usd": spend,
             "fetched_at": n.strftime("%Y-%m-%d %H:%M:%S")}
 
 
