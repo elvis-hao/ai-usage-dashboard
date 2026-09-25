@@ -1805,23 +1805,48 @@ def refresh_store():
         print(f"不完整天：{', '.join(zinfo['partial_days'])}")
 
 
-TASK_NAME = "FeigeUsageDashboardRefreshStore"
+def refresh_all(quiet: bool = False):
+    """全自动刷新：控制台会话额度(ali/glm/kimi) → 本地留存 → 重新生成页面。
+    供计划任务调用，无需人工触发。"""
+    import subprocess
+    t0 = time.time()
+    cq = Path(__file__).resolve().parent / "console_quota.py"
+    if cq.exists():
+        subprocess.run([sys.executable, str(cq), "--fetch", "all", "--quiet"],
+                       capture_output=True, text=True, timeout=300)
+    refresh_store()
+    out = generate_page(refresh_quotas=True)
+    if not quiet:
+        print(f"全自动刷新完成（{time.time()-t0:.1f}s）→ {out}")
+    return out
 
 
-def install_task(remove: bool = False):
-    """每日 23:50 跑 --refresh-store 的 Windows 计划任务（可选，需菲戈明确启用）。
-    作用：ZCode 源库滚动修剪老数据，隔几天不刷新会永久丢失超出窗口的天。"""
+TASK_NAME = "FeigeUsageDashboardAuto"
+TASK_NAME_LOGON = "FeigeUsageDashboardLogon"
+
+
+def install_task(remove: bool = False, minutes: int = 15):
+    """注册 Windows 计划任务：每 {minutes} 分钟 + 每次登录 自动跑 --refresh-all。
+    作用：页面数据保持 ≤{minutes} 分钟新鲜，无需手动双击 bat；零驻留进程。"""
     import subprocess
     if remove:
-        subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], check=False)
-        print(f"已删除计划任务 {TASK_NAME}（若存在）")
+        for tn in (TASK_NAME, TASK_NAME_LOGON):
+            subprocess.run(["schtasks", "/Delete", "/TN", tn, "/F"], check=False)
+        print(f"已删除计划任务 {TASK_NAME} / {TASK_NAME_LOGON}（若存在）")
         return
     script = Path(__file__).resolve()
-    cmd = (f'schtasks /Create /TN {TASK_NAME} /SC DAILY /ST 23:50 /RL LIMITED '
-           f'/TR "py \\"{script}\\" --refresh-store" /F')
-    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    print(r.stdout.strip() or r.stderr.strip())
-    print(f"计划任务 {TASK_NAME} 注册请求已执行（每日 23:50 静默刷新留存）")
+    tr = f'py \\"{script}\\" --refresh-all --quiet'
+    c1 = (f'schtasks /Create /TN {TASK_NAME} /SC MINUTE /MO {minutes} /RL LIMITED '
+          f'/TR "{tr}" /F')
+    c2 = (f'schtasks /Create /TN {TASK_NAME_LOGON} /SC ONLOGON /RL LIMITED '
+          f'/TR "{tr}" /F')
+    for c in (c1, c2):
+        r = subprocess.run(c, shell=True, capture_output=True, text=True,
+                           encoding="gbk", errors="replace")
+        if r.returncode != 0:
+            print((r.stderr or r.stdout or "").strip())
+    print(f"计划任务已注册：{TASK_NAME}（每{minutes}分钟）+ {TASK_NAME_LOGON}（登录时）。"
+          f"删除用 --remove-task。")
 
 
 def main():
@@ -1833,6 +1858,9 @@ def main():
         return
     if args and args[0] == "--refresh-store":
         refresh_store()
+        return
+    if args and args[0] == "--refresh-all":
+        refresh_all(quiet="--quiet" in args)
         return
     if args and args[0] == "--quota":
         cli_quota(refresh="--refresh" in args)
