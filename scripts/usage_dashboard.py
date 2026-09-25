@@ -1239,25 +1239,42 @@ def _active_bands(pol: dict, now=None) -> list:
     return bands
 
 
-def _next_transition(now=None) -> str:
-    """下一时段切换点文案（本地时间，含倒计时）。"""
+def _band_providers(pol: dict, band: str) -> str:
+    provs = []
+    for it in pol.get("items") or []:
+        if (it.get("band") or "daily") == band and it.get("provider") not in provs:
+            provs.append(it.get("provider"))
+    return "、".join(provs)
+
+
+def _next_transition_detail(now=None):
+    """返回 (切换时刻HH:MM, 倒计时文案, 人话描述：进入/结束哪个档+涉及厂商)。"""
     now = now or now_local()
-    wd, hm = now.weekday(), now.strftime("%H:%M")
-    transitions = [
-        ("09:00", "peak" if wd < 5 else None), ("12:00", "offpeak" if wd < 5 else None),
-        ("14:00", "peak" if wd < 5 else None), ("18:00", "offpeak" if wd < 5 else None),
-        ("23:00", "night"), ("09:00", None),
-    ]
-    # 当天内找下一次；否则取明天 09:00
-    for h, _ in transitions:
+    hm = now.strftime("%H:%M")
+    cands = []
+    for h in ("09:00", "12:00", "14:00", "18:00", "23:00"):
         if h > hm:
-            tdelta_h = int(h.split(":")[0]) - int(hm.split(":")[0])
-            tdelta_m = int(h.split(":")[1]) - int(hm.split(":")[1])
-            if tdelta_m < 0:
-                tdelta_h -= 1
-                tdelta_m += 60
-            return f"{h}（{tdelta_h}小时{tdelta_m}分后）"
-    return "明天 09:00"
+            cands.append(now.replace(hour=int(h[:2]), minute=int(h[3:]),
+                                     second=0, microsecond=0))
+    nxt = cands[0] if cands else (now + timedelta(days=1)).replace(
+        hour=9, minute=0, second=0, microsecond=0)
+    pol = load_policies()
+    cur = set(_active_bands(pol, now))
+    after = set(_active_bands(pol, nxt + timedelta(minutes=1)))
+    lbl = dict(BANDS)
+    order = [k for k, _ in BANDS]
+    parts = []
+    for b in sorted(after - cur, key=order.index):
+        provs = _band_providers(pol, b)
+        parts.append(f"进入{lbl[b]}档" + (f"（{provs}）" if provs else ""))
+    for b in sorted(cur - after, key=order.index):
+        parts.append(f"{lbl[b]}档结束")
+    desc = "；".join(parts) if parts else "时段组合不变"
+    secs = int((nxt - now).total_seconds() // 60)
+    dh, dm = divmod(secs, 60)
+    dd, dh = divmod(dh, 24)
+    cd = f"{dd}天{dh}小时" if dd else (f"{dh}小时{dm}分" if dh else f"{dm}分钟")
+    return nxt.strftime("%H:%M"), cd, desc
 
 
 def _quota_band_label(window_label: str) -> str:
@@ -1603,10 +1620,8 @@ def render_html() -> str:
     panels = "".join(f'<div class="panel" id="panel-{p}">{_panel_html(p, periods_data[p])}</div>'
                      for p in PERIODS)
 
-    # Banner: current time + active bands + affected providers
+    # Banner: current time + active bands + affected providers + next transition in plain words
     active_bands = _active_bands(pol)
-    banner_bands = ", ".join(dict(BANDS).get(b, b) for b in active_bands) if active_bands else "无时段性政策"
-    # Show which providers are affected by active bands
     active_details = []
     for band in active_bands:
         band_label = dict(BANDS).get(band, band)
@@ -1614,8 +1629,8 @@ def render_html() -> str:
                     if (it.get("band") or "daily") == band]
         if affected:
             active_details.append(f'{band_label}（{"、".join(dict.fromkeys(affected))}）')
-    banner_detail = "；".join(active_details) if active_details else banner_bands
-    next_trans = _next_transition()
+    banner_detail = "；".join(active_details) if active_details else "无时段性政策"
+    nt_time, nt_cd, nt_desc = _next_transition_detail()
 
     cost_note = next((pd["cost_note"] for pd in periods_data.values() if pd.get("cost_note")), "")
     partial = "、".join(zinfo.get("partial_days", []))
@@ -1645,7 +1660,7 @@ def render_html() -> str:
 <ul class="nav nav-tabs mt-3 mb-3" id="tabs">{section_tabs}</ul>
 
 <div class="tab-pane active" id="pane-overview">
- <div class="banner-now">现在 {now_local().strftime("%H:%M")} {['周一','周二','周三','周四','周五','周六','周日'][now_local().weekday()]}，下一切换 {next_trans}</div>
+ <div class="banner-now">现在 {now_local().strftime("%H:%M")} {['周一','周二','周三','周四','周五','周六','周日'][now_local().weekday()]} ｜ {nt_cd}后（{nt_time}）{nt_desc}</div>
  <div class="fz-12 text-secondary mt-1">当前生效：{banner_detail}</div>
  <h3 class="mt-4 mb-2" style="font-size:1rem">额度 / 余额
   <span class="text-secondary fw-normal fz-12">（每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span></h3>
