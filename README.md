@@ -1,5 +1,30 @@
 # AI 用量看板（ai-usage-dashboard）
 
+[![zh](https://img.shields.io/badge/中文-blue)](#中文) | [![en](https://img.shields.io/badge/English-blue)](#english) | [![ja](https://img.shields.io/badge/日本語-blue)](#日本語) | [![ko](https://img.shields.io/badge/한국어-blue)](#한국어) | [![fr](https://img.shields.io/badge/Français-blue)](#français) | [![de](https://img.shields.io/badge/Deutsch-blue)](#deutsch)
+
+---
+
+## 中文
+一台电脑、多个 AI CLI 工具、多家模型订阅——用量和额度终于在一页看清。**单文件 Python（零 pip 依赖、零驻留进程）**。
+
+## English
+One machine, multiple AI CLI tools, multiple model subscriptions — usage and quota at a glance. **Single-file Python (zero pip dependencies, zero daemons)**.
+
+## 日本語
+1台のPC、複数のAI CLIツール、複数のモデルサブスク — 使用量と割当を一画面で把握。**単一Pythonファイル（pip依存ゼロ、常駐プロセスゼロ）**。
+
+## 한국어
+한 대의 PC, 여러 AI CLI 도구, 여러 모델 구독 — 사용량과 한도를 한눈에. **단일 Python 파일 (pip 의존성 없음, 상주 프로세스 없음)**.
+
+## Français
+Une machine, plusieurs outils CLI d'IA, plusieurs abonnements — usage et quota en un coup d'œil. **Python à fichier unique (zéro dépendance pip, zéro processus résident)**.
+
+## Deutsch
+Ein Rechner, mehrere KI-CLI-Tools, mehrere Modellabos — Nutzung und Kontingent auf einen Blick. **Einzelne Python-Datei (null pip-Abhängigkeiten, null residente Prozesse)**.
+
+---
+
+
 一台电脑、多个 AI CLI 工具、多家模型订阅——用量和额度终于在一页看清。
 
 **单文件 Python（纯标准库，零 pip 依赖、零驻留进程、零端口、零中间数据库）**：双击 `start.bat`（或 `py scripts\usage_dashboard.py`）→ 只读扫描本地数据 → 调各家官方额度接口 → 生成一个自包含静态页 `dashboard\index.html` 并自动打开。跑完即退。

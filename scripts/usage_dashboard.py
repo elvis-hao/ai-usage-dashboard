@@ -813,11 +813,14 @@ def extra_keys_cookie(pid):
     return load_extra_keys().get(f"{pid}_cookie") or None
 
 
-def _newapi_self_by_cookie(base: str, cookie: str):
-    """用日常浏览器的 Cookie 头直调 /api/user/self → 钱包余额 $（quota/500000）。"""
+def _newapi_self_by_cookie(base: str, cookie: str, user_id: str = ""):
+    """用 Cookie 头直调 /api/user/self → 钱包余额 ¥（quota/500000）。
+    new-api 需要 New-Api-User 请求头（user_id），从 session cookie 的 Go gob 编码可解出。"""
+    headers = {"Cookie": cookie, "User-Agent": BROWSER_UA}
+    if user_id:
+        headers["New-Api-User"] = user_id
     try:
-        j = _http_json(base + "/api/user/self",
-                       {"Cookie": cookie, "User-Agent": BROWSER_UA})
+        j = _http_json(base + "/api/user/self", headers)
     except Exception:
         return None
     d = j.get("data") or {}
@@ -891,10 +894,13 @@ def _newapi_billing(entry: dict):
         except Exception:
             pass
     # 2) extra_keys 里粘贴的站点 Cookie 头（日常浏览器过 CF 的会话，httpOnly 也能带）
+    #    + New-Api-User 请求头（从 Go gob session cookie 解码或手动填写）
     if wallet is None:
         ck = extra_keys_cookie(entry.get("id"))
         if ck:
-            wallet = _newapi_self_by_cookie(base, ck)
+            ex2 = load_extra_keys()
+            uid = ex2.get(f'{entry.get("id")}_user_id', "")
+            wallet = _newapi_self_by_cookie(base, ck, user_id=uid)
     # 3) 兜底：extra_keys 站点账号密码登录
     if wallet is None:
         ex = load_extra_keys()
