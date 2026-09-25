@@ -164,6 +164,10 @@ OVERRIDE_CSS = """
 .fz-12{font-size:.78rem}
 .card-dim{opacity:.7}
 .progressbg .progress-bar.bar-fill-subtle{background:rgba(244,244,245,.16)}
+/* 进度条样式切换：progressbg=行背景式(默认)；其余=隐藏背景条、显示独立条 */
+.qbar-alt{display:none}
+html:not([data-pstyle="progressbg"]) .qbar-alt{display:block}
+html:not([data-pstyle="progressbg"]) .progressbg-progress{display:none}
 table.table td.num,table.table th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tab-pane{display:none}.tab-pane.active{display:block}
 .panel{display:none}.panel.active{display:block}
@@ -232,7 +236,8 @@ SETTINGS_JS = """
   }
   function applyProgressStyle(){
     var s=get('pstyle');
-    document.querySelectorAll('.progressbg .progress').forEach(function(p){
+    document.documentElement.setAttribute('data-pstyle', s);
+    document.querySelectorAll('.qbar-alt').forEach(function(p){
       p.classList.remove('progress-sm','progress-lg','progress-xl');
       var bar=p.querySelector('.progress-bar'); if(!bar) return;
       bar.classList.remove('progress-bar-striped','progress-bar-animated');
@@ -368,7 +373,10 @@ def _quota_cards_html(quotas, rl, pol, now):
                 f'style="width:{width}%"{remattr} role="progressbar" aria-valuenow="{width}" '
                 f'aria-valuemin="0" aria-valuemax="100"></div></div>'
                 f'<div class="progressbg-text fz-12">{left}</div>'
-                f'<div class="progressbg-value{bold} js-val"{remattr}>{val}</div></div>')
+                f'<div class="progressbg-value{bold} js-val"{remattr}>{val}</div></div>'
+                f'<div class="progress qbar-alt mt-1"><div class="progress-bar js-bar" '
+                f'style="width:{width}%"{remattr} role="progressbar" aria-valuenow="{width}" '
+                f'aria-valuemin="0" aria-valuemax="100"></div></div>')
 
     if rl and rl.get("used_percent") is not None:
         rem = 100.0 - float(rl["used_percent"])
@@ -379,7 +387,10 @@ def _quota_cards_html(quotas, rl, pol, now):
                 f'style="width:{width}%" data-rem="{rem:.1f}" role="progressbar" aria-valuenow="{width}" '
                 f'aria-valuemin="0" aria-valuemax="100"></div></div>'
                 f'<div class="progressbg-text fz-12">周额度 · '
-                f'{_countdown(rl.get("resets_at"), now)}</div></div>')
+                f'{_countdown(rl.get("resets_at"), now)}</div></div>'
+                f'<div class="progress qbar-alt mt-1"><div class="progress-bar js-bar" '
+                f'style="width:{width}%" data-rem="{rem:.1f}" role="progressbar" '
+                f'aria-valuenow="{width}" aria-valuemin="0" aria-valuemax="100"></div></div>')
         cards.append(wrap("Codex", f'<span class="{bold.strip()} js-val" data-rem="{rem:.1f}">{rem:g}%</span>', body))
 
     order = ["GLM (9.22)", "GLM 官方 (BigModel Coding Max)", "阿里 Coding Plan",
@@ -412,7 +423,10 @@ def _quota_cards_html(quotas, rl, pol, now):
                         f'style="width:{width}%" data-rem="{rem:.1f}" role="progressbar" aria-valuenow="{width}" '
                         f'aria-valuemin="0" aria-valuemax="100"></div></div>'
                         f'<div class="progressbg-text fz-12">{w.get("label") or "窗口"}'
-                        + (f' · {cd}' if cd else '') + '</div></div>') + note_html
+                        + (f' · {cd}' if cd else '') + '</div></div>'
+                        f'<div class="progress qbar-alt mt-1"><div class="progress-bar js-bar" '
+                        f'style="width:{width}%" data-rem="{rem:.1f}" role="progressbar" '
+                        f'aria-valuenow="{width}" aria-valuemin="0" aria-valuemax="100"></div></div>') + note_html
                 cards.append(wrap(name,
                                   f'<span class="{bold.strip()} js-val" data-rem="{rem:.1f}">{rem:g}%</span>'
                                   if rem is not None else "—", body + ts_html))
@@ -639,7 +653,7 @@ def render_html(ctx):
     return f"""<!DOCTYPE html>
 <html lang="zh-CN" data-bs-theme="dark" data-bs-theme-base="neutral"
       data-bs-theme-primary="inverted" data-bs-theme-font="sans-serif"
-      data-bs-theme-radius="1" data-figo-ready="true">
+      data-bs-theme-radius="1" data-pstyle="progressbg" data-figo-ready="true">
 <head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AI 用量中心</title>
