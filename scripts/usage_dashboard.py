@@ -23,6 +23,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import render_page  # 纯渲染层（scripts/render_page.py）
+
 # ---------------------------------------------------------------- 路径与常量
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -697,7 +699,7 @@ def _kimi_coding(key: str):
     try:
         us = j.get("usages") or {}
         windows = []
-        for lab, kk in (("本 key · 5小时", "limit_5h"), ("本 key · 7天", "limit_7d")):
+        for lab, kk in (("5小时", "limit_5h"), ("7天", "limit_7d")):
             u = us.get(kk) or {}
             ratio, rt = u.get("used_ratio"), u.get("reset_time")
             if ratio is None and rt is None:
@@ -979,7 +981,7 @@ def _quota_job_registry():
             if ratio is None:
                 return False
             pct = ratio * 100 if ratio <= 1 else ratio
-            r["windows"].append({"label": "总(Kimi+Code)", "used_percent": round(pct, 2),
+            r["windows"].append({"label": "总使用量(Kimi+Code)", "used_percent": round(pct, 2),
                                  "used": None, "quota": None, "remaining": None,
                                  "reset_at": _to_epoch(sb.get("expireTime")), "unit": ""})
             r["note"] = None
@@ -1012,7 +1014,7 @@ def _quota_job_registry():
                 if k.get("ok") and k.get("window") and fresh:
                     cap = (k.get("fetched_at") or "")[-5:]  # 会话捕获时刻 HH:MM
                     w = dict(k["window"])
-                    w["label"] = f'订阅总量 · 会话{cap}' if cap else "订阅总量(Kimi+Code)"
+                    w["label"] = f'总使用量 · 会话{cap}' if cap else "总使用量(Kimi+Code)"
                     r["windows"].append(w)
                     r["note"] = None
             except Exception:
@@ -1175,217 +1177,6 @@ def collect_all(refresh_quotas: bool = False):
     return periods_data, quotas, rl, zinfo, cstats
 
 
-def _countdown(epoch_s) -> str:
-    """只给倒计时（菲戈 2026-09-25 要求），不给绝对时间。"""
-    if not epoch_s:
-        return ""
-    delta = datetime.fromtimestamp(epoch_s).astimezone() - now_local()
-    secs = int(delta.total_seconds())
-    if secs <= 0:
-        return "待重置"
-    d, rem = divmod(secs, 86400)
-    h, rem = divmod(rem, 3600)
-    m = rem // 60
-    if d:
-        return f"{d}天{h}小时"
-    if h:
-        return f"{h}小时{m}分"
-    return f"{m}分钟"
-
-
-def _window_remaining(w) -> float:
-    """窗口 → 剩余百分比（统一口径）。"""
-    if w.get("remaining_percent") is not None:
-        return float(w["remaining_percent"])
-    if w.get("used_percent") is not None:
-        return 100.0 - float(w["used_percent"])
-    if w.get("remaining") is not None and w.get("quota"):
-        return float(w["remaining"]) / float(w["quota"]) * 100
-    return None
-
-
-# 窗口 → band 映射（provider×窗口标签），用于卡片高亮与分组
-WINDOW_BANDS = {
-    ("GLM (9.22)", "5小时"): "night",
-    ("GLM (9.22)", "周"): "offpeak",
-    ("GLM (9.22)", "MCP 每月额度"): "daily",
-    ("GLM 官方 (BigModel Coding Max)", "5小时"): "night",
-    ("GLM 官方 (BigModel Coding Max)", "周"): "offpeak",
-    ("GLM 官方 (BigModel Coding Max)", "MCP 每月额度"): "daily",
-    ("阿里 Coding Plan", "5小时"): "night",
-    ("阿里 Coding Plan", "周"): "offpeak",
-    ("阿里 Coding Plan", "月"): "daily",
-    ("阿里 Token Plan", "月"): "daily",
-    ("Kimi", "本 key · 5小时"): "daily",
-    ("Kimi", "本 key · 7天"): "daily",
-    ("Kimi", "订阅总量"): "daily",
-    ("MiniMax", "5小时"): "daily",
-    ("MiniMax", "周"): "daily",
-}
-
-
-def _active_bands(pol: dict, now=None) -> list:
-    """返回当前生效的 band 名列表（去重保序）。"""
-    now = now or now_local()
-    bands = []
-    for band, _ in BANDS:
-        for it in pol.get("items") or []:
-            if (it.get("band") or "daily") != band:
-                continue
-            if _rule_active(it.get("active_rule"), now) is True:
-                if band not in bands:
-                    bands.append(band)
-                break
-    return bands
-
-
-def _band_providers(pol: dict, band: str) -> str:
-    provs = []
-    for it in pol.get("items") or []:
-        if (it.get("band") or "daily") == band and it.get("provider") not in provs:
-            provs.append(it.get("provider"))
-    return "、".join(provs)
-
-
-def _next_transition_detail(now=None):
-    """返回 (切换时刻HH:MM, 倒计时文案, 人话描述：进入/结束哪个档+涉及厂商)。"""
-    now = now or now_local()
-    hm = now.strftime("%H:%M")
-    cands = []
-    for h in ("09:00", "12:00", "14:00", "18:00", "23:00"):
-        if h > hm:
-            cands.append(now.replace(hour=int(h[:2]), minute=int(h[3:]),
-                                     second=0, microsecond=0))
-    nxt = cands[0] if cands else (now + timedelta(days=1)).replace(
-        hour=9, minute=0, second=0, microsecond=0)
-    pol = load_policies()
-    cur = set(_active_bands(pol, now))
-    after = set(_active_bands(pol, nxt + timedelta(minutes=1)))
-    lbl = dict(BANDS)
-    order = [k for k, _ in BANDS]
-    parts = []
-    for b in sorted(after - cur, key=order.index):
-        provs = _band_providers(pol, b)
-        parts.append(f"进入{lbl[b]}档" + (f"（{provs}）" if provs else ""))
-    for b in sorted(cur - after, key=order.index):
-        parts.append(f"{lbl[b]}档结束")
-    desc = "；".join(parts) if parts else "时段组合不变"
-    secs = int((nxt - now).total_seconds() // 60)
-    dh, dm = divmod(secs, 60)
-    dd, dh = divmod(dh, 24)
-    cd = f"{dd}天{dh}小时" if dd else (f"{dh}小时{dm}分" if dh else f"{dm}分钟")
-    return nxt.strftime("%H:%M"), cd, desc
-
-
-def _quota_band_label(window_label: str) -> str:
-    """把窗口标签映射到简短 band 徽标文本；没有映射返回空串。"""
-    m = {"night": "夜间", "peak": "高峰", "offpeak": "非高峰", "campaign": "限时", "daily": "日常"}
-    return m.get(window_label, "")
-
-
-def _quota_cards_html(quotas: dict, rl, pol: dict) -> str:
-    """额度卡片网格（v5 恢复 v3 确认样式）：
-    每家一张小卡，卡头=渠道名+主剩余值并排，多窗口逐行紧凑排列。
-    只加数据时间脚注，不做活跃分组/高亮/band 徽标（那些在顶部横幅统一展示）。"""
-    cards = []
-
-    def wrap(name: str, head_value: str, body: str = "", dim: bool = False) -> str:
-        cls = " card-dim" if dim else ""
-        head = (f'<span class="ms-auto h3 mb-0">{head_value}</span>' if head_value else "")
-        return (f'<div class="col-sm-6 col-xl-4 col-xxl-3"><div class="card{cls}">'
-                f'<div class="card-body py-3">'
-                f'<div class="d-flex align-items-baseline">'
-                f'<span class="fw-medium">{name}</span>{head}</div>'
-                f'{body}</div></div></div>')
-
-    def win_block(w) -> str:
-        rem = _window_remaining(w)
-        lab = w.get("label") or "窗口"
-        cd = _countdown(_to_epoch(w.get("reset_at")))
-        left = f'{lab}' + (f' · {cd}' if cd else '')
-        bold = ' fw-bold' if (rem is not None and rem < 15) else ''
-        val = f'{rem:g}%' if rem is not None else '—'
-        width = f'{max(0.0, min(100.0, rem)):.1f}' if rem is not None else '0'
-        return (f'<div class="progressbg mt-1">'
-                f'<div class="progress progressbg-progress"><div class="progress-bar bar-fill-subtle" '
-                f'style="width:{width}%" role="progressbar" aria-valuenow="{width}" '
-                f'aria-valuemin="0" aria-valuemax="100"></div></div>'
-                f'<div class="progressbg-text fz-12">{left}</div>'
-                f'<div class="progressbg-value{bold}">{val}</div></div>')
-
-    if rl and rl.get("used_percent") is not None:
-        rem = 100.0 - float(rl["used_percent"])
-        bold = ' fw-bold' if rem < 15 else ''
-        width = f'{max(0.0, min(100.0, rem)):.1f}'
-        body = (f'<div class="progressbg mt-1">'
-                f'<div class="progress progressbg-progress"><div class="progress-bar bar-fill-subtle" '
-                f'style="width:{width}%" role="progressbar" aria-valuenow="{width}" '
-                f'aria-valuemin="0" aria-valuemax="100"></div></div>'
-                f'<div class="progressbg-text fz-12">周额度 · '
-                f'{_countdown(rl.get("resets_at"))}</div></div>')
-        cards.append(wrap("Codex", f'<span class="{bold.strip()}">{rem:g}%</span>', body))
-
-    order = ["GLM (9.22)", "GLM 官方 (BigModel Coding Max)", "阿里 Coding Plan",
-             "阿里 Token Plan", "Kimi", "MiniMax", "DeepSeek", "StepFun (阶跃星辰)",
-             "智谱钱包"]
-    order += [n for n in quotas if n not in order]  # 自定义中继等追加在后
-    for name in order:
-        v = quotas.get(name)
-        if v is None:
-            continue
-        note_html = (f'<div class="fz-12 text-secondary mt-1">{v["note"]}</div>'
-                     if v.get("note") else "")
-        ts_html = (f'<div class="fz-12 text-secondary mt-1">数据 {v["fetched_at"]}</div>'
-                   if v.get("fetched_at") else "")
-        if not v.get("ok"):
-            cards.append(wrap(name,
-                              '<span class="text-secondary fz-12">不可获得</span>',
-                              f'<div class="fz-12 text-secondary mt-1" '
-                              f'style="white-space:normal">{v.get("error", "")}</div>',
-                              dim=True))
-            continue
-        if v.get("kind") == "quota":
-            wins = v.get("windows", [])
-            if len(wins) == 1:
-                w = wins[0]
-                rem = _window_remaining(w)
-                bold = ' fw-bold' if (rem is not None and rem < 15) else ''
-                cd = _countdown(_to_epoch(w.get("reset_at")))
-                width = f'{max(0.0, min(100.0, rem)):.1f}' if rem is not None else '0'
-                body = (f'<div class="progressbg mt-1">'
-                        f'<div class="progress progressbg-progress"><div class="progress-bar bar-fill-subtle" '
-                        f'style="width:{width}%" role="progressbar" aria-valuenow="{width}" '
-                        f'aria-valuemin="0" aria-valuemax="100"></div></div>'
-                        f'<div class="progressbg-text fz-12">{w.get("label") or "窗口"}'
-                        + (f' · {cd}' if cd else '') + '</div></div>') + note_html
-                cards.append(wrap(name,
-                                  f'<span class="{bold.strip()}">{rem:g}%</span>'
-                                  if rem is not None else "—", body + ts_html))
-            else:
-                cards.append(wrap(name, "",
-                                  "".join(win_block(w) for w in wins) + note_html + ts_html))
-        elif v.get("kind") == "relay":
-            wallet = v.get("wallet_usd")
-            head = (f'${wallet:g}' if wallet is not None
-                    else ("不限量" if v.get("unlimited") else f'${v.get("remaining_usd"):g}'))
-            lines = []
-            if wallet is not None:
-                lines.append("钱包余额（账户维度）")
-                if v.get("remaining_usd") is not None:
-                    lines.append(f'本 key 剩余配额 ${v.get("remaining_usd"):g}')
-            elif v.get("unlimited"):
-                lines.append("本 key 剩余配额：不限量")
-            if v.get("month_spend_usd") is not None:
-                lines.append(f'本 key 本月消费 ${v.get("month_spend_usd"):g}')
-            body = "".join(f'<div class="fz-12 text-secondary mt-1">{x}</div>'
-                           for x in lines)
-            cards.append(wrap(name, head, body + note_html + ts_html))
-        else:
-            cards.append(wrap(name, f'¥{v.get("available"):g}', note_html + ts_html))
-
-    return "".join(cards)
-
-
 def load_policies() -> dict:
     pf = DATA_DIR / "policies.json"
     if pf.exists():
@@ -1394,98 +1185,6 @@ def load_policies() -> dict:
         except Exception:
             return {}
     return {}
-
-
-BANDS = [("night", "夜间"), ("peak", "高峰"), ("offpeak", "非高峰"),
-         ("campaign", "节假日（限时）"), ("daily", "日常")]
-PROVIDER_COLS = ["GLM", "DeepSeek", "阿里百炼", "Kimi", "MiniMax", "StepFun"]
-
-
-def _rule_active(rule, now):
-    """policy active_rule → True/False/None(不判定)。本地时区。"""
-    if not isinstance(rule, dict):
-        return None
-    t = rule.get("type")
-    if t in (None, "none", "unknown"):
-        return None
-    hm = now.strftime("%H:%M")
-    wd = now.weekday()
-    today = now.strftime("%Y-%m-%d")
-    if t == "daily":
-        if rule.get("until") and today > rule["until"]:
-            return False
-        s, e = rule.get("start", "00:00"), rule.get("end", "23:59")
-        return (hm >= s or hm < e) if s > e else (s <= hm < e)
-    if t == "daterange":
-        return rule.get("from", "0000-00-00") <= today <= rule.get("to", "9999-99-99")
-    inside = (wd in rule.get("days", [])) and \
-        any(s <= hm < e for s, e in rule.get("windows", []))
-    return (not inside) if t == "outside" else inside
-
-
-def _policies_html(pol: dict) -> str:
-    """政策情报＝一张矩阵表：第一列纵向时段（日常/高峰/非高峰/夜间/节假日），
-    横向厂商，交叉格=该时段该厂政策；当前生效的行首列打徽章+行内●。
-    来源以角标[n]引用，表脚统一列原文链接+核实日期。"""
-    items = pol.get("items") or []
-    now = now_local()
-
-    sources = []
-
-    def src_ref(s):
-        if not s:
-            return ""
-        if s not in sources:
-            sources.append(s)
-        return f'<sup class="text-secondary">[{sources.index(s) + 1}]</sup>'
-
-    rows = []
-    active_bands = []
-    for band, label in BANDS:
-        its = [it for it in items if (it.get("band") or "daily") == band]
-        states = {_rule_active(it.get("active_rule"), now) for it in its}
-        if band == "daily":
-            badge = '<span class="badge bg-secondary-lt ms-1">常时</span>'
-        elif True in states:
-            badge = '<span class="badge bg-secondary-lt ms-1 fw-bold">当前生效</span>'
-            active_bands.append(label)
-        elif None in states:
-            badge = '<span class="badge bg-secondary-lt ms-1">含未公开时段</span>'
-        else:
-            badge = '<span class="text-secondary fz-12 ms-1">不在时段内</span>'
-        cells = []
-        for prov in PROVIDER_COLS:
-            pits = [x for x in its if x.get("provider") == prov]
-            if not pits:
-                cells.append('<td class="text-secondary">—</td>')
-                continue
-            parts = []
-            for it in pits:
-                st = _rule_active(it.get("active_rule"), now)
-                dot = '<span class="fw-bold">●</span> ' if st is True else ''
-                parts.append(
-                    f'<div class="fz-12">{dot}<span class="fw-medium">{it.get("effect") or ""}</span>'
-                    f'{src_ref(it.get("source"))}</div>'
-                    f'<div class="fz-12 text-secondary">{it.get("models") or ""}</div>'
-                    f'<div class="fz-12 text-secondary">{it.get("title") or ""}'
-                    f'{" · " + it.get("window") if it.get("window") else ""}</div>')
-            cells.append(f'<td>{" ".join(parts)}</td>')
-        rows.append(f'<tr><th class="text-nowrap" style="min-width:7rem">{label}{badge}</th>'
-                    f'{"".join(cells)}</tr>')
-
-    foot = "".join(
-        f'<div>[{i + 1}] <a href="{s}" target="_blank" style="text-decoration:none">{s}</a>'
-        f'（核实 {pol.get("updated_at", "—")}）</div>' if s.startswith("http")
-        else f'<div>[{i + 1}] {s}（核实 {pol.get("updated_at", "—")}）</div>'
-        for i, s in enumerate(sources))
-    now_line = (f'<div class="fz-12 text-secondary mb-2">现在 {now.strftime("%H:%M")} ｜ '
-                f'当前生效：{"、".join(active_bands) if active_bands else "无时段性政策"} ｜ '
-                f'已核实快照不自动抓取；政策变动后核实更新 data\\policies.json</div>')
-    return (now_line +
-            '<div class="card"><div class="table-responsive"><table class="table card-table">'
-            f'<thead><tr><th>时段</th>{"".join(f"<th>{p}</th>" for p in PROVIDER_COLS)}</tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table></div></div>'
-            f'<div class="fz-12 text-secondary mt-2" style="line-height:1.7">{foot}</div>')
 
 
 def load_links() -> list:
@@ -1498,197 +1197,15 @@ def load_links() -> list:
     return []
 
 
-def _links_html(items: list) -> str:
-    """收藏夹：各家控制台/订阅/钱包直达（data/links.json 随时增删）。"""
-    if not items:
-        return ""
-    parts = []
-    cur = None
-    for it in items:
-        g = it.get("group") or ""
-        if g != cur:
-            if parts:
-                parts.append('</span>')
-            parts.append(f'<span class="d-inline-flex align-items-center me-2 mt-1">'
-                         f'<span class="fz-12 text-secondary me-1">{g}</span>')
-            cur = g
-        parts.append(f'<a class="btn btn-sm btn-outline-secondary me-1" target="_blank" '
-                     f'href="{it.get("url")}" style="text-decoration:none">'
-                     f'{it.get("label") or it.get("url")}</a>')
-    parts.append("</span>")
-    return ('<div class="mt-2 mb-1 d-flex flex-wrap align-items-center">'
-            f'{"".join(parts)}</div>')
+def load_bookmarks() -> dict:
+    bf = DATA_DIR / "bookmarks.json"
+    if bf.exists():
+        try:
+            return json.loads(bf.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
 
-
-def _panel_html(p: str, pd: dict) -> str:
-    t = pd["totals"]
-    costs = pd["costs"]
-    cost_sum = sum(costs.values())
-    cost_html = (f'¥{cost_sum:.2f}<span class="badge bg-secondary-lt ms-1">估算</span>'
-                 if costs else '<span class="text-secondary">—</span>')
-
-    def bigcard(label, value, sub):
-        return (f'<div class="col-sm-6 col-xl-3"><div class="card"><div class="card-body">'
-                f'<div class="fz-12 text-secondary">{label}</div>'
-                f'<div class="h1 mt-1 mb-0">{value}</div>'
-                f'<div class="fz-12 text-secondary mt-1">{sub}</div></div></div></div>')
-
-    cards = ('<div class="row row-cards g-2">'
-             + bigcard("调用次数", f'{t["calls"]:,}', '')
-             + bigcard("总 Token", fmt_tokens(t["total"]),
-                       f'输入 {fmt_tokens(t["input"])}（缓存读 {fmt_tokens(t["cached"])}）')
-             + bigcard("输出 Token", fmt_tokens(t["output"]), f'含推理 {fmt_tokens(t["reasoning"])}')
-             + bigcard("费用", cost_html, "仅 DeepSeek 有价目 · 估算")
-             + '</div>')
-
-    trs = []
-    for r in pd["rows"]:
-        trs.append(f'<tr><td>{r["source"]}</td><td class="text-secondary">{r["provider"]}</td>'
-                   f'<td class="fw-medium">{r["model"]}</td><td class="num">{r["calls"]:,}</td>'
-                   f'<td class="num">{fmt_tokens(r["input"])}</td>'
-                   f'<td class="num">{fmt_tokens(r["output"])}</td>'
-                   f'<td class="num fw-medium">{fmt_tokens(r["total"])}</td></tr>')
-    table = f'''<div class="card mt-3"><div class="table-responsive">
-<table class="table card-table table-vcenter text-nowrap">
-<thead><tr><th>来源</th><th>渠道</th><th>模型</th><th class="num">调用</th><th class="num">输入</th>
-<th class="num">输出</th><th class="num">合计</th></tr></thead>
-<tbody>{"".join(trs)}</tbody>
-<tfoot><tr><td colspan="3">合计</td><td class="num">{t["calls"]:,}</td>
- <td class="num">{fmt_tokens(t["input"])}</td>
- <td class="num">{fmt_tokens(t["output"])}</td>
- <td class="num fw-medium">{fmt_tokens(t["total"])}</td></tr></tfoot>
-</table></div></div>'''
-    return cards + table
-
-
-OVERRIDE_CSS = """
-.fz-12{font-size:.78rem}
-.card-dim{opacity:.7}
-.progressbg .progress-bar.bar-fill-subtle{background:rgba(244,244,245,.16)}
-table.table td.num,table.table th.num{text-align:right;font-variant-numeric:tabular-nums}
-.tab-pane{display:none}.tab-pane.active{display:block}
-.panel{display:none}.panel.active{display:block}
-.banner-now{font-size:1.15rem; font-weight:700; color:var(--tblr-primary, #e5e5e5)}
-"""
-
-JS = """
-function showTab(name){
-  document.querySelectorAll('.tab-pane').forEach(function(e){e.classList.remove('active')});
-  document.getElementById('pane-'+name).classList.add('active');
-  document.querySelectorAll('#tabs .nav-link').forEach(function(t){
-    t.classList.toggle('active', t.getAttribute('onclick').indexOf("'"+name+"'") >= 0)});
-}
-function showPeriod(p){
-  document.querySelectorAll('.panel').forEach(function(e){e.classList.remove('active')});
-  document.getElementById('panel-'+p).classList.add('active');
-  document.querySelectorAll('#periods .nav-link').forEach(function(t){
-    t.classList.toggle('active', t.getAttribute('onclick').indexOf("'"+p+"'") >= 0)});
-}
-window.addEventListener('DOMContentLoaded', function(){ showTab('overview'); showPeriod('today'); });
-"""
-
-
-def render_html() -> str:
-    periods_data, quotas, rl, zinfo, cstats = _RENDER_CTX
-    q_ok = sum(1 for v in quotas.values() if isinstance(v, dict) and v.get("ok"))
-    q_all = len(quotas)
-    pol = load_policies()
-    gen = now_local().strftime("%Y-%m-%d %H:%M:%S")
-    local_css = (ROOT / "dashboard" / "css" / "tabler.css").exists()
-    if local_css:
-        css_links = ('<link rel="stylesheet" href="css/tabler.css">\n'
-                     '<link rel="stylesheet" href="css/tabler-themes.css">\n'
-                     '<link rel="stylesheet" href="css/base.css">\n'
-                     '<link rel="stylesheet" href="css/design-theme.css?v=20260925">')
-    else:
-        css_links = ('<link rel="stylesheet" '
-                     'href="https://cdn.jsdelivr.net/npm/@tabler/css@1.5.0/dist/tabler.min.css">')
-
-    # 4 Tab nav（Tabler 官方 nav-tabs 结构）
-    section_tabs = "".join(
-        f'<li class="nav-item"><a class="nav-link{" active" if t == "overview" else ""}" '
-        f'onclick="showTab(\'{t}\'); return false;" href="#">{l}</a></li>'
-        for t, l in [("overview", "概览"), ("policy", "政策"), ("links", "收藏夹"), ("details", "明细")])
-    section_tabs = f'<ul class="nav nav-tabs mb-4">{section_tabs}</ul>'
-
-    # Period tabs inside details pane（用 nav-pills，Tabler 官方示范）
-    period_tabs = "".join(
-        f'<li class="nav-item"><a class="nav-link{" active" if p == "today" else ""}" '
-        f'onclick="showPeriod(\'{p}\'); return false;" href="#">{PERIOD_LABELS[p]}</a></li>'
-        for p in PERIODS)
-    period_tabs = f'<ul class="nav nav-pills mb-3">{period_tabs}</ul>'
-    panels = "".join(f'<div class="panel" id="panel-{p}">{_panel_html(p, periods_data[p])}</div>'
-                     for p in PERIODS)
-
-    # Banner: current time + active bands + affected providers + next transition in plain words
-    active_bands = _active_bands(pol)
-    active_details = []
-    for band in active_bands:
-        band_label = dict(BANDS).get(band, band)
-        affected = [it.get("provider") for it in (pol.get("items") or [])
-                    if (it.get("band") or "daily") == band]
-        if affected:
-            active_details.append(f'{band_label}（{"、".join(dict.fromkeys(affected))}）')
-    banner_detail = "；".join(active_details) if active_details else "无时段性政策"
-    nt_time, nt_cd, nt_desc = _next_transition_detail()
-
-    cost_note = next((pd["cost_note"] for pd in periods_data.values() if pd.get("cost_note")), "")
-    partial = "、".join(zinfo.get("partial_days", []))
-    partial_note = (f"⚠ {partial} 数据不完整：ZCode 源库为约 1 万行滚动窗口，早期数据已被源头修剪且不可恢复；"
-                    f"自 2026-09-25 起看板按天留存聚合，此后不再丢失。"
-                    if partial else "")
-
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN" data-bs-theme="dark" data-bs-theme-base="neutral"
-      data-bs-theme-primary="inverted" data-bs-theme-font="sans-serif"
-      data-bs-theme-radius="1" data-figo-ready="true">
-<head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI 用量中心</title>
-{css_links}
-<style>{OVERRIDE_CSS}</style></head>
-<body>
-<div class="page"><div class="page-wrapper">
-<div class="page-body"><div class="container-xl">
-<div class="page-header">
- <div class="w-100">
-  <h2 class="page-title mb-1">AI 用量中心</h2>
-  <div class="fz-12 text-secondary gen">生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新</div>
- </div>
-</div>
-
-<ul class="nav nav-tabs mt-3 mb-3" id="tabs">{section_tabs}</ul>
-
-<div class="tab-pane active" id="pane-overview">
- <div class="banner-now">现在 {now_local().strftime("%H:%M")} {['周一','周二','周三','周四','周五','周六','周日'][now_local().weekday()]} ｜ {nt_cd}后（{nt_time}）{nt_desc}</div>
- <div class="fz-12 text-secondary mt-1">当前生效：{banner_detail}</div>
- <h3 class="mt-4 mb-2" style="font-size:1rem">额度 / 余额
-  <span class="text-secondary fw-normal fz-12">（每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span></h3>
- <div class="row row-cards g-2">{_quota_cards_html(quotas, rl, pol)}</div>
-</div>
-
-<div class="tab-pane" id="pane-policy">
- {_policies_html(pol)}
-</div>
-
-<div class="tab-pane" id="pane-links">
- {_links_html(load_links())}
-</div>
-
-<div class="tab-pane" id="pane-details">
- <ul class="nav nav-pills mt-2 mb-3" id="periods">{period_tabs}</ul>
- {panels}
- <div class="fz-12 text-secondary mt-4" style="line-height:1.8">
-  <div>{cost_note}</div>
-  <div>{partial_note}</div>
-  <div>不可获得：阿里百炼额度（需控制台登录态）｜ Gemini、二狗API（无公开额度接口）。</div>
- </div>
-</div>
-
-</div></div>
-</div></div>
-<script>{JS}</script>
-</body></html>"""
 
 
 _RENDER_CTX = None
@@ -1697,7 +1214,15 @@ _RENDER_CTX = None
 def generate_page(refresh_quotas: bool = False, out: Path = None):
     global _RENDER_CTX
     _RENDER_CTX = collect_all(refresh_quotas=refresh_quotas)
-    html = render_html()
+    periods_data, quotas, rl, zinfo, cstats = _RENDER_CTX
+    ctx = {
+        "periods_data": periods_data, "quotas": quotas, "rl": rl, "zinfo": zinfo,
+        "cstats": cstats, "pol": load_policies(), "bm": load_bookmarks(),
+        "gen": now_local().strftime("%Y-%m-%d %H:%M:%S"),
+        "local_css": (ROOT / "dashboard" / "css" / "tabler.css").exists(),
+        "now": now_local(), "period_labels": PERIOD_LABELS, "periods": PERIODS,
+    }
+    html = render_page.render_html(ctx)
     out = out or (ROOT / "dashboard" / "index.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
