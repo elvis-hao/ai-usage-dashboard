@@ -697,7 +697,7 @@ def _kimi_coding(key: str):
     try:
         us = j.get("usages") or {}
         windows = []
-        for lab, kk in (("5小时", "limit_5h"), ("7天", "limit_7d")):
+        for lab, kk in (("本 key · 5小时", "limit_5h"), ("本 key · 7天", "limit_7d")):
             u = us.get(kk) or {}
             ratio, rt = u.get("used_ratio"), u.get("reset_time")
             if ratio is None and rt is None:
@@ -1010,7 +1010,10 @@ def _quota_job_registry():
                     fresh = (now_local().replace(tzinfo=None) -
                              datetime.strptime(ft, "%Y-%m-%d %H:%M:%S")).total_seconds() < 12 * 3600
                 if k.get("ok") and k.get("window") and fresh:
-                    r["windows"].append(k["window"])
+                    cap = (k.get("fetched_at") or "")[-5:]  # 会话捕获时刻 HH:MM
+                    w = dict(k["window"])
+                    w["label"] = f'订阅总量 · 会话{cap}' if cap else "订阅总量(Kimi+Code)"
+                    r["windows"].append(w)
                     r["note"] = None
             except Exception:
                 pass
@@ -1254,6 +1257,8 @@ def _quota_cards_html(quotas: dict, rl) -> str:
             continue
         note_html = (f'<div class="fz-12 text-secondary mt-1">{v["note"]}</div>'
                      if v.get("note") else "")
+        ts_html = (f'<div class="fz-12 text-secondary mt-1">数据 {v["fetched_at"]}</div>'
+                   if v.get("fetched_at") else "")
         if not v.get("ok"):
             cards.append(wrap(name,
                               '<span class="text-secondary fz-12">不可获得</span>',
@@ -1277,10 +1282,10 @@ def _quota_cards_html(quotas: dict, rl) -> str:
                         + (f' · {cd}' if cd else '') + '</div></div>') + note_html
                 cards.append(wrap(name,
                                   f'<span class="{bold.strip()}">{rem:g}%</span>'
-                                  if rem is not None else "—", body))
+                                  if rem is not None else "—", body + ts_html))
             else:
                 cards.append(wrap(name, "",
-                                  "".join(win_block(w) for w in wins) + note_html))
+                                  "".join(win_block(w) for w in wins) + note_html + ts_html))
         elif v.get("kind") == "relay":
             wallet = v.get("wallet_usd")
             head = (f'${wallet:g}' if wallet is not None
@@ -1296,9 +1301,9 @@ def _quota_cards_html(quotas: dict, rl) -> str:
                 lines.append(f'本 key 本月消费 ${v.get("month_spend_usd"):g}')
             body = "".join(f'<div class="fz-12 text-secondary mt-1">{x}</div>'
                            for x in lines)
-            cards.append(wrap(name, head, body + note_html))
+            cards.append(wrap(name, head, body + note_html + ts_html))
         else:
-            cards.append(wrap(name, f'¥{v.get("available"):g}', note_html))
+            cards.append(wrap(name, f'¥{v.get("available"):g}', note_html + ts_html))
 
     return "".join(cards)
 
@@ -1501,6 +1506,8 @@ window.addEventListener('DOMContentLoaded', function(){ showPeriod('today'); });
 
 def render_html() -> str:
     periods_data, quotas, rl, zinfo, cstats = _RENDER_CTX
+    q_ok = sum(1 for v in quotas.values() if isinstance(v, dict) and v.get("ok"))
+    q_all = len(quotas)
     tabs = "".join(f'<li class="nav-item"><a class="nav-link" data-p="{p}" '
                    f'onclick="showPeriod(\'{p}\')">{PERIOD_LABELS[p]}</a></li>'
                    for p in PERIODS)
@@ -1542,7 +1549,8 @@ def render_html() -> str:
 </div>
 {_links_html(load_links())}
 <ul class="nav nav-pills mt-2 mb-3" id="tabs">{tabs}</ul>
-<h3 class="mt-2 mb-2" style="font-size:1rem">额度 / 余额</h3>
+<h3 class="mt-2 mb-2" style="font-size:1rem">额度 / 余额
+ <span class="text-secondary fw-normal fz-12">（抓取 {q_ok}/{q_all} 成功 · 每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span></h3>
 <div class="row row-cards g-2">{_quota_cards_html(quotas, rl)}</div>
 <h3 class="mt-4 mb-2" style="font-size:1rem">政策情报
  <span class="text-secondary fw-normal fz-12">（你在用的各家当前生效政策/优惠）</span></h3>
