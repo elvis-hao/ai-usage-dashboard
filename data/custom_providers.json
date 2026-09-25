@@ -1,0 +1,11 @@
+[
+  {
+    "_说明": "加一个 new-api 系中转站 = 复制一段改 id/label/base_url/key_source，零代码。key_source 三种：{type:'zcode_provider', id:'<ZCode里的providerId>'} / {type:'extra_keys', field:'<extra_keys字段>'} / {type:'sqlite_cell', path:'<库路径>', sql:'<只读单列SQL>'}。needs_browser_uA=true 可绕过 Cloudflare 对脚本 UA 的拦截。",
+    "id": "my-relay",
+    "label": "我的中转站",
+    "type": "newapi_billing",
+    "base_url": "https://relay.example.com",
+    "key_source": {"type": "extra_keys", "field": "my_relay_key"},
+    "needs_browser_ua": true
+  }
+]

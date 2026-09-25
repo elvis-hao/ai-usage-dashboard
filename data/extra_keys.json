@@ -1,0 +1,14 @@
+{
+ "_说明": "可选启用项（模板，全部留空=不启用）。明文凭据仅运行时内存使用，不写日志/页面。deepseek 价目之外的手动凭据都放这里。",
+ "glm_individual": "",
+ "ali_cookie": "",
+ "kimi_web_token": "",
+ "relay_cookie": "",
+ "relay2_cookie": "",
+ "relay_user": "",
+ "relay_pass": "",
+ "relay2_user": "",
+ "relay2_pass": "",
+ "_kimi_web_token取法": "浏览器登录 kimi.com/code/console → F12 → Application/Local Storage → access_token 整串",
+ "_cookie取法": "日常浏览器打开该站(已登录) → F12 → Network → 刷新 → 点任一 /api/ 请求 → Request Headers → 复制 Cookie: 后面整串"
+}

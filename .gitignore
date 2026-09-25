@@ -1,0 +1,12 @@
+# 生成物
+dashboard/
+logs/
+
+# 运行数据（含会话凭据与个人用量，绝不入库）
+data/*_cookies.json
+data/*_profile/
+data/*_quota.json
+data/*_captures.json
+data/quota_cache.json
+data/zcode_daily.json
+data/codex_cache.json

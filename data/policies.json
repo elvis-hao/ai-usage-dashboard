@@ -1,0 +1,214 @@
+{
+ "_rule": "只录已核实政策；每条带 source 与 verified；band=时段归属(night/offpeak/peak/campaign/none)，active_rule 供看板实时判定'当前生效'；rule 类型：daily(每日时段,可跨零点,until 截止日)/inside(仅列出的星期+时段内生效)/outside(列出的星期+时段之外生效)/daterange(日期区间全天)/unknown(时段未公开,不判定)/none(不判定)。更新：核实后改本文件重新生成。",
+ "updated_at": "2026-09-25",
+ "items": [
+  {
+   "band": "night",
+   "provider": "GLM",
+   "models": "GLM-5.3-Flash（ZCode/AutoClaw 端）",
+   "title": "夜间畅用（限时）",
+   "window": "每日 23:00–次日 09:00，至 2026-10-07",
+   "effect": "ZCode/AutoClaw 端无限用；其他 Agent 端额度翻倍",
+   "active_rule": {
+    "type": "daily",
+    "start": "23:00",
+    "end": "09:00",
+    "until": "2026-10-07"
+   },
+   "source": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "night",
+   "provider": "阿里百炼",
+   "models": "qwen3.8-max / qwen3.8-flash",
+   "title": "限时夜间4折",
+   "window": "夜间（具体钟点未公开于文档与控制台）",
+   "effect": "4折",
+   "active_rule": {
+    "type": "unknown"
+   },
+   "source": "用户控制台 coding-plan 页徽章截图（2026-09-25）",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "offpeak",
+   "provider": "GLM",
+   "models": "全部 Coding Plan 模型",
+   "title": "非高峰积分半价（常规）",
+   "window": "工作日 14:00–18:00 以外全部时段",
+   "effect": "积分消耗 ×50%",
+   "active_rule": {
+    "type": "outside",
+    "days": [
+     0,
+     1,
+     2,
+     3,
+     4
+    ],
+    "windows": [
+     [
+      "14:00",
+      "18:00"
+     ]
+    ]
+   },
+   "source": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "offpeak",
+   "provider": "DeepSeek",
+   "models": "全部模型",
+   "title": "非高峰半价（常规）",
+   "window": "高峰时段以外（含周末全天）",
+   "effect": "价格为高峰的 1/2",
+   "active_rule": {
+    "type": "outside",
+    "days": [
+     0,
+     1,
+     2,
+     3,
+     4
+    ],
+    "windows": [
+     [
+      "09:00",
+      "12:00"
+     ],
+     [
+      "14:00",
+      "18:00"
+     ]
+    ]
+   },
+   "source": "https://api-docs.deepseek.com/quick_start/pricing",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "peak",
+   "provider": "GLM",
+   "models": "全部 Coding Plan 模型",
+   "title": "高峰原价",
+   "window": "工作日 14:00–18:00（UTC+8）",
+   "effect": "积分消耗 ×100%（无折扣）",
+   "active_rule": {
+    "type": "inside",
+    "days": [
+     0,
+     1,
+     2,
+     3,
+     4
+    ],
+    "windows": [
+     [
+      "14:00",
+      "18:00"
+     ]
+    ]
+   },
+   "source": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "peak",
+   "provider": "DeepSeek",
+   "models": "全部模型",
+   "title": "高峰 2 倍价",
+   "window": "周一至周五 09:00–12:00、14:00–18:00（北京）",
+   "effect": "价格 = 非高峰 ×2",
+   "active_rule": {
+    "type": "inside",
+    "days": [
+     0,
+     1,
+     2,
+     3,
+     4
+    ],
+    "windows": [
+     [
+      "09:00",
+      "12:00"
+     ],
+     [
+      "14:00",
+      "18:00"
+     ]
+    ]
+   },
+   "source": "https://api-docs.deepseek.com/quick_start/pricing",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "campaign",
+   "provider": "GLM",
+   "models": "全部 Coding Plan 模型",
+   "title": "庆双节（限时）",
+   "window": "2026-09-25 ~ 10-07 全天",
+   "effect": "全天按非高峰规则（×50%）",
+   "active_rule": {
+    "type": "daterange",
+    "from": "2026-09-25",
+    "to": "2026-10-07"
+   },
+   "source": "https://docs.bigmodel.cn/cn/coding-plan/overview",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "daily",
+   "provider": "阿里百炼",
+   "models": "Pro 新客",
+   "title": "新客首月特惠（常规）",
+   "window": "首次订阅首月",
+   "effect": "首月 ¥39.90（目录价 ¥200/月）；续费5折已于 2026-04-01 结束",
+   "active_rule": {
+    "type": "none"
+   },
+   "source": "https://help.aliyun.com/zh/model-studio/coding-plan",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "daily",
+   "provider": "Kimi",
+   "models": "全部",
+   "title": "无时段性优惠",
+   "window": "—",
+   "effect": "k3 定价 ¥2 / ¥20 / ¥100 每百万（缓存命中/未命中/输出）",
+   "active_rule": {
+    "type": "none"
+   },
+   "source": "https://platform.kimi.com/docs/pricing",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "daily",
+   "provider": "MiniMax",
+   "models": "资源包",
+   "title": "无时段性优惠",
+   "window": "—",
+   "effect": "仅资源包批量省 10/15/20%（非时段性）",
+   "active_rule": {
+    "type": "none"
+   },
+   "source": "https://platform.minimax.cn/docs/guides/pricing",
+   "verified": "2026-09-25"
+  },
+  {
+   "band": "daily",
+   "provider": "StepFun",
+   "models": "—",
+   "title": "未核实",
+   "window": "—",
+   "effect": "官方定价页 404、无公开政策入口；不录未核实内容",
+   "active_rule": {
+    "type": "none"
+   },
+   "source": "—",
+   "verified": "2026-09-25"
+  }
+ ]
+}

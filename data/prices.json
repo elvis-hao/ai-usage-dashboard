@@ -1,0 +1,9 @@
+{
+  "_说明": "价格单位 USD/百万token，2026-09-25 核自 DeepSeek 官方价目页 (api-docs.deepseek.com/quick_start/pricing)。¥ 显示 = USD × usd_cny，汇率可编辑。高峰时段(工作日 UTC 01:00-04:00 与 06:00-10:00)官方价为非高峰 2 倍，本表按非高峰价估算，页面须标注。",
+  "usd_cny": 7.1,
+  "peak_multiplier": 2,
+  "models": {
+    "deepseek-flash": { "input": 0.15, "cached": 0.003, "output": 0.6 },
+    "deepseek-v4-pro": { "input": 0.66, "cached": 0.022, "output": 1.98 }
+  }
+}
