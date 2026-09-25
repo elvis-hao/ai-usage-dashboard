@@ -863,6 +863,7 @@ def render_html(ctx):
       data-bs-theme-radius="1" data-pstyle="progressbg" data-figo-ready="true">
 <head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="300">
 <title>AI 用量中心</title>
 {css_links}
 <style>{OVERRIDE_CSS}</style></head>
