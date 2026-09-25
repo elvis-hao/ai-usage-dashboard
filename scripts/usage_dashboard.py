@@ -5,12 +5,14 @@ AI 用量看板 v1 — 单文件 · 纯 Python 标准库 · 零 pip 依赖
 
 用法:
   py usage_dashboard.py --scan [period]   CLI 文本输出（验证数据用，period 默认 today）
-  py usage_dashboard.py                   启动本地看板 http://127.0.0.1:8787
+  py usage_dashboard.py                   生成静态页 dashboard/index.html 并打开（file:// 协议）
+  py usage_dashboard.py --refresh-all     全自动刷新（计划任务调用，写 logs/refresh.log）
 
 原则:
   - ZCode 库只读连接 (mode=ro)；.codex 目录只读；不写任何原始数据源
   - API key 仅运行时内存中使用（读自 ZCode 自有配置），绝不写入本项目任何文件/日志
   - 无中间数据库：每次从原始日志全量重算，天然幂等
+  - 无服务器、无端口：生成自包含静态文件，file:// 直开
 """
 from __future__ import annotations
 
@@ -964,7 +966,13 @@ def _quota_job_registry():
                     pass
             if section:
                 s = j.get(section)
-                return s if s else _fail(f"会话结果中无 {section} 段")
+                if not s:
+                    return _fail(f"会话结果中无 {section} 段")
+                # 把顶层 fetched_at 传入 section，使卡脚能显示数据时间
+                if isinstance(s, dict) and not s.get("fetched_at"):
+                    s = dict(s)
+                    s["fetched_at"] = ft
+                return s
             return j if j.get("ok") else _fail("会话结果无效")
         return job
 
@@ -1024,7 +1032,7 @@ def _quota_job_registry():
                     fresh = (now_local().replace(tzinfo=None) -
                              datetime.strptime(ft, "%Y-%m-%d %H:%M:%S")).total_seconds() < 12 * 3600
                 if k.get("ok") and k.get("window") and fresh:
-                    cap = (k.get("fetched_at") or "")[-5:]  # 会话捕获时刻 HH:MM
+                    cap = (k.get("fetched_at") or "")[-8:-3]  # "HH:MM"（去掉秒）
                     w = dict(k["window"])
                     w["label"] = f'总使用量 · 会话{cap}' if cap else "总使用量(Kimi+Code)"
                     r["windows"].append(w)
@@ -1083,7 +1091,7 @@ def fetch_quotas(refresh: bool = False):
             cache = {}
     jobs = _quota_job_registry()
     ALWAYS_FRESH = {"阿里 Coding Plan", "阿里 Token Plan",
-                    "GLM 官方 (BigModel Coding Max)"}  # 只读本地会话结果，不吃缓存
+                    "GLM 官方 (BigModel Coding Max)", "Kimi"}  # 读本地文件不吃缓存
     # 剪掉注册表已不存在的旧卡片名缓存（防止改名后旧卡残留在页面）
     cache = {k: v for k, v in cache.items() if k in jobs}
 
@@ -1355,19 +1363,70 @@ def refresh_store():
         print(f"不完整天：{', '.join(zinfo['partial_days'])}")
 
 
+LOG_DIR = ROOT / "logs"
+
+
+def _log_refresh(msg: str):
+    """写一行日志到 logs/refresh.log（追加，不覆盖），最多保留 500 行。"""
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        lf = LOG_DIR / "refresh.log"
+        if lf.exists() and lf.stat().st_size > 100_000:  # ~100KB 截断
+            lines = lf.read_text(encoding="utf-8").splitlines()
+            lf.write_text("\n".join(lines[-250:]) + "\n", encoding="utf-8")
+        with open(lf, "a", encoding="utf-8") as f:
+            f.write(f"[{now_local().strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except Exception:
+        pass
+
+
 def refresh_all(quiet: bool = False):
     """全自动刷新：控制台会话额度(ali/glm/kimi) → 本地留存 → 重新生成页面。
-    供计划任务调用，无需人工触发。"""
+    供计划任务调用。全链路写 logs/refresh.log，不再静默吞错。"""
     import subprocess
     t0 = time.time()
+    errors = []
+
+    # Step 1: console_quota --fetch all（跳过无凭据目标）
     cq = Path(__file__).resolve().parent / "console_quota.py"
     if cq.exists():
-        subprocess.run([sys.executable, str(cq), "--fetch", "all", "--quiet"],
-                       capture_output=True, text=True, timeout=300)
-    refresh_store()
-    out = generate_page(refresh_quotas=True)
+        try:
+            r = subprocess.run(
+                [sys.executable, str(cq), "--fetch", "all"],
+                capture_output=True, text=True, timeout=600)
+            if r.returncode != 0:
+                errors.append(f"console_quota rc={r.returncode}: {r.stderr.strip()[:200]}")
+            out_lines = (r.stdout or "").strip().splitlines()
+            for line in out_lines:
+                if line.startswith("WARN") or "失败" in line or "过期" in line or "异常" in line:
+                    errors.append(f"cq: {line[:120]}")
+        except subprocess.TimeoutExpired:
+            errors.append("console_quota 超时(600s)")
+        except Exception as e:
+            errors.append(f"console_quota 异常: {type(e).__name__}: {e}")
+
+    # Step 2: 本地留存
+    try:
+        refresh_store()
+    except Exception as e:
+        errors.append(f"refresh_store 异常: {type(e).__name__}")
+
+    # Step 3: 重新生成页面（穿透 quota cache）
+    try:
+        out = generate_page(refresh_quotas=True)
+    except Exception as e:
+        errors.append(f"generate_page 异常: {type(e).__name__}: {e}")
+        _log_refresh(f"FAIL {'; '.join(errors)}")
+        raise
+
+    dur = time.time() - t0
+    status = "OK" if not errors else f"WARN({len(errors)})"
+    _log_refresh(f"{status} {dur:.1f}s → {out.name}"
+                 + (f" | {'; '.join(errors[:3])}" if errors else ""))
     if not quiet:
-        print(f"全自动刷新完成（{time.time()-t0:.1f}s）→ {out}")
+        print(f"全自动刷新完成（{dur:.1f}s）→ {out}")
+        for e in errors:
+            print(f"  ⚠ {e}")
     return out
 
 

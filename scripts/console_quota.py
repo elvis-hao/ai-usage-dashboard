@@ -89,16 +89,23 @@ TARGETS = {
         "probe": KIMI_LOGIN_PROBE_JS,
         "capture_keys": ("MembershipService", "subscription", "Subscription"),
     },
-    # 示例：new-api 系中转（登录后读 /api/user/self 钱包）。
-    # 加自己的站 = 复制一段改 login_url/channel；mode:"self" 走 NEWAPI_PROBE_JS+parse_newapi_self。
-    # "my-relay": {
-    #     "login_url": "https://relay.example.com/",
-    #     "app_url": "https://relay.example.com/",
-    #     "probe": NEWAPI_PROBE_JS,
-    #     "capture_keys": (),
-    #     "mode": "self",
-    #     "channel": "chrome",
-    # },
+    # new-api 系中转：登录后直接读 /api/user/self 的钱包 quota（无需捕获）
+    "zzswitch": {
+        "login_url": "https://api.zzswitch.com/",
+        "app_url": "https://api.zzswitch.com/",
+        "probe": NEWAPI_PROBE_JS,
+        "capture_keys": (),
+        "mode": "self",
+        "channel": "chrome",
+    },
+    "ergou": {
+        "login_url": "https://ergouapi.com/",
+        "app_url": "https://ergouapi.com/",
+        "probe": NEWAPI_PROBE_JS,
+        "capture_keys": (),
+        "mode": "self",
+        "channel": "chrome",
+    },
 }
 
 
@@ -110,7 +117,7 @@ def _logged_in(target, j):
         return ("ConsoleNeedLogin" not in s) and ("请登录" not in s)
     if target == "kimi":
         return ("subscriptionBalance" in s) or ("ratelimitCode" in s)
-    if TARGETS.get(target, {}).get("mode") == "self":
+    if target in ("zzswitch", "ergou"):
         return bool(j.get("success")) and isinstance(j.get("data"), dict)
     if target == "glm":
         return bool(j.get("ok"))
@@ -491,14 +498,21 @@ def main():
         return
     if "--fetch" in args:
         for t in (targets or ["ali"]):
+            # 跳过无凭据目标（zzswitch/ergou 无 cookies/profile，避免每轮注定失败）
+            cf = DATA / f"{t}_cookies.json"
+            pf = DATA / f"{t}_profile"
+            if t == "kimi" and not pf.exists():
+                continue
+            elif t != "kimi" and not cf.exists():
+                continue
             res, err = fetch(t)
             if res:
                 (DATA / f"{t}_quota.json").write_text(
                     json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
                 if not quiet:
                     print(f"{t} 额度已取")
-            elif not quiet:
-                print(err)
+            else:
+                print(f"WARN {t}: {err}")  # 失败始终输出（不再被 --quiet 吞掉）
         return
     print(__doc__)
 
