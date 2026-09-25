@@ -34,6 +34,10 @@
 | **特粗** | **条纹** | **条纹动画** | |
 | ![](docs/styles/style_xl_coloron.png) | ![](docs/styles/style_striped_coloron.png) | ![](docs/styles/style_animated_coloron.png) | |
 
+中英双语：右上角 EN/中文 按钮切换（界面 chrome 双语，存 localStorage）：
+
+![](docs/styles/lang_en.png)
+
 ## 快速开始
 
 ```

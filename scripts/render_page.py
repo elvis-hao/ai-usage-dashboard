@@ -4,6 +4,7 @@
 ctx = {periods_data, quotas, rl, zinfo, cstats, pol, bm, gen, local_css, now}
 所有时段/状态/样式逻辑在此；数据获取在 usage_dashboard.py。"""
 from datetime import datetime
+import json
 
 BANDS = [("night", "夜间"), ("peak", "高峰"), ("offpeak", "非高峰"),
          ("campaign", "节假日（限时）"), ("daily", "日常")]
@@ -127,33 +128,56 @@ def _band_providers(pol, band):
     return "、".join(provs)
 
 
+BANDS_EN = {"night": "Night", "peak": "Peak", "offpeak": "Off-peak",
+            "campaign": "Holiday", "daily": "Daily"}
+WD_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def _fmt_cd(secs, en=False):
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
+    m = rem // 60
+    if en:
+        if d:
+            return f"{d}d{h}h"
+        if h:
+            return f"{h}h{m}m"
+        return f"{m}m"
+    if d:
+        return f"{d}天{h}小时"
+    if h:
+        return f"{h}小时{m}分"
+    return f"{m}分钟"
+
+
 def _next_transition_detail(now):
+    from datetime import timedelta
     hm = now.strftime("%H:%M")
     cands = []
     for h in ("09:00", "12:00", "14:00", "18:00", "23:00"):
         if h > hm:
             cands.append(now.replace(hour=int(h[:2]), minute=int(h[3:]),
                                      second=0, microsecond=0))
-    from datetime import timedelta
     nxt = cands[0] if cands else (now + timedelta(days=1)).replace(
         hour=9, minute=0, second=0, microsecond=0)
     pol = _NEXT_POL[0]
     cur = set(_active_bands(pol, now))
     after = set(_active_bands(pol, nxt + timedelta(minutes=1)))
-    lbl = dict(BANDS)
+    lbl, lbl_en = dict(BANDS), BANDS_EN
     order = [k for k, _ in BANDS]
-    parts = []
+    zh, en = [], []
     for b in sorted(after - cur, key=order.index):
         provs = _band_providers(pol, b)
-        parts.append(f"进入{lbl[b]}档" + (f"（{provs}）" if provs else ""))
+        zh.append(f"进入{lbl[b]}档" + (f"（{provs}）" if provs else ""))
+        en.append(f"{lbl_en[b]} starts" + (f" ({provs})" if provs else ""))
     for b in sorted(cur - after, key=order.index):
-        parts.append(f"{lbl[b]}档结束")
-    desc = "；".join(parts) if parts else "时段组合不变"
-    secs = int((nxt - now).total_seconds() // 60)
-    dh, dm = divmod(secs, 60)
-    dd, dh = divmod(dh, 24)
-    cd = f"{dd}天{dh}小时" if dd else (f"{dh}小时{dm}分" if dh else f"{dm}分钟")
-    return nxt.strftime("%H:%M"), cd, desc
+        zh.append(f"{lbl[b]}档结束")
+        en.append(f"{lbl_en[b]} ends")
+    desc_zh = "；".join(zh) if zh else "时段组合不变"
+    desc_en = "; ".join(en) if en else "no band change"
+    secs = int((nxt - now).total_seconds())
+    return (nxt.strftime("%H:%M"), _fmt_cd(secs), desc_zh,
+            _fmt_cd(secs, en=True), desc_en)
 
 
 _NEXT_POL = [{}]  # 由 render_html 注入，供 _next_transition_detail 使用
@@ -202,6 +226,89 @@ function showPeriod(p){
     t.classList.toggle('active', t.getAttribute('onclick').indexOf("'"+p+"'") >= 0)});
 }
 """
+
+# 中英字典：仅界面 chrome 词；动态数值/用户内容不翻译
+I18N = {
+    "概览": "Overview", "政策": "Policy", "收藏夹": "Bookmarks", "明细": "Details",
+    "额度 / 余额": "Quota / Balance", "政策情报": "Policy Intel", "分类": "Categories",
+    "全部收藏": "All", "模型控制台": "Model Consoles", "常用": "Frequent",
+    "调用次数": "Calls", "总 Token": "Total Tokens", "输出 Token": "Output Tokens", "费用": "Cost",
+    "来源": "Source", "渠道": "Channel", "模型": "Model", "调用": "Calls", "输入": "Input",
+    "输出": "Output", "合计": "Total", "时段": "Period", "常时": "Always",
+    "当前生效": "Active now", "不在时段内": "Out of window", "含未公开时段": "Undisclosed window",
+    "数据": "Data", "不可获得": "Unavailable", "剩余": "Left", "重置": "Reset",
+    "设置": "Settings", "重置为默认": "Reset", "主题基调": "Base tone", "主色": "Primary",
+    "圆角": "Radius", "字体": "Font", "进度条样式": "Progress style", "状态色": "Status color",
+    "今天": "Today", "昨天": "Yesterday", "近7天": "7d", "近30天": "30d", "本月": "Month", "全部": "All",
+    "5小时": "5h", "周": "Weekly", "月": "Monthly", "工具调用": "Tools", "总使用量": "Total usage",
+    "夜间": "Night", "高峰": "Peak", "非高峰": "Off-peak", "节假日（限时）": "Holiday (limited)",
+    "日常": "Daily", "周额度": "Weekly quota", "订阅总量": "Subscription total",
+    "基础设置": "Settings", "开": "On", "关": "Off",
+    "AI 用量中心": "AI Usage Center", "不限量": "Unlimited",
+}
+
+I18N_JS = """
+(function(){
+  var DICT = __DICT__;
+  var PREFIX = __PREFIX__;
+  var nodes = [];
+  function cd2en(s){
+    return s.replace(/(\\d+)天(\\d+)小时/g,'$1d$2h')
+            .replace(/(\\d+)小时(\\d+)分/g,'$1h$2m')
+            .replace(/(\\d+)分钟/g,'$1m')
+            .replace(/(\\d+)天/g,'$1d')
+            .replace(/百分比制（官方不给绝对量）/g,'percent-based (vendor gives no absolute)')
+            .replace(/待重置/g,'due');
+  }
+  function transform(zh){
+    if(DICT[zh]!==undefined) return DICT[zh];
+    var out=zh;
+    for(var i=0;i<PREFIX.length;i++){
+      if(out.indexOf(PREFIX[i][0])===0){ out = PREFIX[i][1] + out.slice(PREFIX[i][0].length); break; }
+    }
+    return cd2en(out);
+  }
+  function collect(){
+    document.querySelectorAll('body *').forEach(function(el){
+      el.childNodes.forEach(function(n){
+        if(n.nodeType===3 && n.textContent.trim()){ nodes.push({n:n, zh:n.textContent});
+        }
+      });
+    });
+  }
+  function lang(){ return localStorage.getItem('aud-lang') || 'zh'; }
+  function applyLang(l){
+    nodes.forEach(function(o){ o.n.textContent = (l==='en'? transform(o.zh) : o.zh); });
+    document.documentElement.lang = (l==='en' ? 'en' : 'zh-CN');
+    document.title = (l==='en' ? 'AI Usage Center' : 'AI 用量中心');
+    var b=document.getElementById('langBtn'); if(b) b.textContent = (l==='en' ? '中文' : 'EN');
+    ['banner','cur','gen','qsub','psub'].forEach(function(pre){
+      var zh=document.getElementById(pre+'Zh'), en=document.getElementById(pre+'En');
+      if(zh) zh.style.display = (l==='en'?'none':'');
+      if(en) en.style.display = (l==='en'?'':'none');
+    });
+  }
+  window.addEventListener('DOMContentLoaded', function(){
+    collect();
+    var b=document.getElementById('langBtn');
+    if(b) b.onclick=function(){ var l=(lang()==='zh'?'en':'zh'); localStorage.setItem('aud-lang',l); applyLang(l); };
+    applyLang(lang());
+  });
+})();
+"""
+
+I18N_PREFIX = [
+    ["数据 ", "Data "], ["周额度", "Weekly quota"], ["周 ", "Weekly "], ["5小时", "5h"], ["7天", "7d"],
+    ["MCP 每月额度", "MCP monthly"], ["工具调用", "Tools"], ["总使用量", "Total usage"],
+    ["订阅总量", "Subscription total"], ["key 本月消费", "key monthly spend"],
+    ["key 剩余配额", "key remaining"], ["钱包余额（账户维度）", "Wallet balance (account)"],
+    ["剩余 ", "Left "], ["重置 ", "Reset "], ["月 ", "Monthly "],
+    ["不可获得：", "Unavailable: "], ["业务码", "biz code"], ["身份验证失败", "auth failed"],
+    ["会话", "session"], ["百分比制（官方不给绝对量）", "percent-based (no absolute from vendor)"],
+    ["剩余 29 天", "29 days left"], ["仅 DeepSeek 有价目", "DeepSeek-only pricing"],
+    ["输入 ", "Input "], ["缓存读 ", "cache-read "], ["含推理 ", "incl. reasoning "],
+    ["估算", "est."],
+]
 
 SETTINGS_JS = """
 (function(){
@@ -502,9 +609,12 @@ def _policies_html(pol, now):
         f'（核实 {pol.get("updated_at", "—")}）</div>' if s.startswith("http")
         else f'<div>[{i + 1}] {s}（核实 {pol.get("updated_at", "—")}）</div>'
         for i, s in enumerate(sources))
-    now_line = (f'<div class="fz-12 text-secondary mb-2">现在 {now.strftime("%H:%M")} ｜ '
+    now_line = (f'<div class="fz-12 text-secondary mb-2"><span id="psubZh">现在 {now.strftime("%H:%M")} ｜ '
                 f'当前生效：{"、".join(active_bands) if active_bands else "无时段性政策"} ｜ '
-                f'已核实快照不自动抓取；政策变动后核实更新 data\\policies.json</div>')
+                f'已核实快照不自动抓取；政策变动后核实更新 data\\policies.json</span>'
+                f'<span id="psubEn" style="display:none">Now {now.strftime("%H:%M")} | active: '
+                f'{", ".join(active_bands) if active_bands else "none"} | '
+                f'verified snapshot, not auto-fetched; update data\\policies.json on change</span></div>')
     return (now_line +
             '<div class="card"><div class="table-responsive"><table class="table card-table">'
             f'<thead><tr><th>时段</th>{"".join(f"<th>{p}</th>" for p in PROVIDER_COLS)}</tr></thead>'
@@ -636,14 +746,18 @@ def render_html(ctx):
                      for p in periods)
 
     active_bands = _active_bands(pol, now)
-    active_details = []
+    active_details, active_details_en = [], []
     for band in active_bands:
         band_label = dict(BANDS).get(band, band)
         affected = _band_providers(pol, band)
         if affected:
             active_details.append(f'{band_label}（{affected}）')
+            active_details_en.append(f'{BANDS_EN.get(band, band)} ({affected})')
     banner_detail = "；".join(active_details) if active_details else "无时段性政策"
-    nt_time, nt_cd, nt_desc = _next_transition_detail(now)
+    banner_detail_en = ("; ".join(active_details_en) if active_details_en
+                        else "no time-band policy")
+    nt_time, nt_cd, nt_desc, nt_cd_en, nt_desc_en = _next_transition_detail(now)
+    wd_zh = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][now.weekday()]
 
     cost_note = next((pd["cost_note"] for pd in periods_data.values() if pd.get("cost_note")), "")
     partial = "、".join(zinfo.get("partial_days", []))
@@ -666,19 +780,21 @@ def render_html(ctx):
  <div class="row align-items-center w-100">
   <div class="col">
    <h2 class="page-title mb-1">AI 用量中心</h2>
-   <div class="fz-12 text-secondary gen">生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新</div>
+   <div class="fz-12 text-secondary gen"><span id="genZh">生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新</span><span id="genEn" style="display:none">Generated {gen} | fetch {q_ok}/{q_all} ok | regenerate to refresh</span></div>
   </div>
   <div class="col-auto">
+   <button class="btn btn-outline-secondary btn-sm me-1" id="langBtn">EN</button>
    <button class="btn btn-outline-secondary btn-sm" id="settingsBtn"> 设置</button>
   </div>
  </div>
 </div>
 {section_tabs}
 <div class="tab-pane active" id="pane-overview">
- <div class="banner-now">现在 {now.strftime("%H:%M")} {['周一','周二','周三','周四','周五','周六','周日'][now.weekday()]} ｜ {nt_cd}后（{nt_time}）{nt_desc}</div>
- <div class="fz-12 text-secondary mt-1">当前生效：{banner_detail}</div>
- <h3 class="mt-4 mb-2" style="font-size:1rem">额度 / 余额
-  <span class="text-secondary fw-normal fz-12">（每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span></h3>
+ <div class="banner-now" id="bannerZh">现在 {now.strftime("%H:%M")} {wd_zh} ｜ {nt_cd}后（{nt_time}）{nt_desc}</div>
+ <div class="banner-now" id="bannerEn" style="display:none">Now {now.strftime("%H:%M")} {WD_EN[now.weekday()]} | in {nt_cd_en} ({nt_time}) {nt_desc_en}</div>
+ <div class="fz-12 text-secondary mt-1"><span id="curZh">当前生效：{banner_detail}</span><span id="curEn" style="display:none">Active: {banner_detail_en}</span></div>
+ <h3 class="mt-4 mb-2" style="font-size:1rem"><span data-zh="额度 / 余额" data-en="Quota / Balance">额度 / 余额</span>
+  <span class="text-secondary fw-normal fz-12"><span id="qsubZh">（每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span><span id="qsubEn" style="display:none">("Data HH:MM" per card = fetch time; unavailable cards show reason)</span></span></h3>
  <div class="row row-cards g-2" id="quotaGrid">{_quota_cards_html(quotas, rl, pol, now)}</div>
 </div>
 <div class="tab-pane" id="pane-policy">
@@ -701,5 +817,6 @@ def render_html(ctx):
 {_settings_html()}
 <script src="js/Sortable.min.js"></script>
 <script>{JS}</script>
+<script>{I18N_JS.replace("__DICT__", json.dumps(I18N, ensure_ascii=False)).replace("__PREFIX__", json.dumps(I18N_PREFIX, ensure_ascii=False))}</script>
 <script>{SETTINGS_JS}</script>
 </body></html>"""
