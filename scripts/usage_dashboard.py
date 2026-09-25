@@ -1405,6 +1405,38 @@ def _policies_html(pol: dict) -> str:
             f'<div class="fz-12 text-secondary mt-2" style="line-height:1.7">{foot}</div>')
 
 
+def load_links() -> list:
+    lf = DATA_DIR / "links.json"
+    if lf.exists():
+        try:
+            return json.loads(lf.read_text(encoding="utf-8")) or []
+        except Exception:
+            return []
+    return []
+
+
+def _links_html(items: list) -> str:
+    """收藏夹：各家控制台/订阅/钱包直达（data/links.json 随时增删）。"""
+    if not items:
+        return ""
+    parts = []
+    cur = None
+    for it in items:
+        g = it.get("group") or ""
+        if g != cur:
+            if parts:
+                parts.append('</span>')
+            parts.append(f'<span class="d-inline-flex align-items-center me-2 mt-1">'
+                         f'<span class="fz-12 text-secondary me-1">{g}</span>')
+            cur = g
+        parts.append(f'<a class="btn btn-sm btn-outline-secondary me-1" target="_blank" '
+                     f'href="{it.get("url")}" style="text-decoration:none">'
+                     f'{it.get("label") or it.get("url")}</a>')
+    parts.append("</span>")
+    return ('<div class="mt-2 mb-1 d-flex flex-wrap align-items-center">'
+            f'{"".join(parts)}</div>')
+
+
 def _panel_html(p: str, pd: dict) -> str:
     t = pd["totals"]
     costs = pd["costs"]
@@ -1508,6 +1540,7 @@ def render_html() -> str:
   <div class="fz-12 text-secondary gen">生成 {gen} ｜ 额度统一按"剩余"口径 ｜ 重新生成即刷新</div>
  </div>
 </div>
+{_links_html(load_links())}
 <ul class="nav nav-pills mt-2 mb-3" id="tabs">{tabs}</ul>
 <h3 class="mt-2 mb-2" style="font-size:1rem">额度 / 余额</h3>
 <div class="row row-cards g-2">{_quota_cards_html(quotas, rl)}</div>

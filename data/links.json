@@ -1,0 +1,52 @@
+[
+ {
+  "group": "GLM",
+  "label": "套餐用量",
+  "url": "https://www.bigmodel.cn/coding-plan/personal/usage"
+ },
+ {
+  "group": "GLM",
+  "label": "开放平台",
+  "url": "https://open.bigmodel.cn/console"
+ },
+ {
+  "group": "阿里百炼",
+  "label": "Coding Plan",
+  "url": "https://bailian.console.aliyun.com/cn-beijing/subscription/coding-plan"
+ },
+ {
+  "group": "阿里百炼",
+  "label": "Token Plan",
+  "url": "https://bailian.console.aliyun.com/cn-beijing/subscription/token-plan/personal"
+ },
+ {
+  "group": "Codex",
+  "label": "Codex",
+  "url": "https://chatgpt.com/codex"
+ },
+ {
+  "group": "Codex",
+  "label": "用量",
+  "url": "https://chatgpt.com/#settings/Usage"
+ },
+ {
+  "group": "Kimi",
+  "label": "Code 控制台",
+  "url": "https://www.kimi.com/code/console"
+ },
+ {
+  "group": "MiniMax",
+  "label": "平台",
+  "url": "https://platform.minimax.cn/"
+ },
+ {
+  "group": "DeepSeek",
+  "label": "用量/余额",
+  "url": "https://platform.deepseek.com/usage"
+ },
+ {
+  "group": "StepFun",
+  "label": "平台",
+  "url": "https://platform.stepfun.com/"
+ }
+]
