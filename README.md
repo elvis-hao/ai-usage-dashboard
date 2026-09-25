@@ -14,6 +14,26 @@
 
 设计原则：**数据真实高于一切**——每个数字可回溯到原始来源；拿不到的如实标"不可获得"；费用只有明确价目才估算并标注。
 
+## 界面与样式画廊（均为假数据 demo 截图，不含真实账户信息）
+
+四个页签：
+
+| 概览 | 政策 | 收藏夹 | 明细 |
+|---|---|---|---|
+| ![](docs/styles/tab_overview.png) | ![](docs/styles/tab_policy.png) | ![](docs/styles/tab_links.png) | ![](docs/styles/tab_details.png) |
+
+设置面板（主题/主色/圆角/字体/进度条样式/状态色）：
+
+![](docs/styles/settings.png)
+
+进度条样式 × 状态色（设置面板可切换，默认=背景式+状态色关）：
+
+| 背景式·色关(默认) | 背景式·色开 | 细条 | 粗条 |
+|---|---|---|---|
+| ![](docs/styles/style_progressbg_coloroff.png) | ![](docs/styles/style_progressbg_coloron.png) | ![](docs/styles/style_sm_coloron.png) | ![](docs/styles/style_lg_coloron.png) |
+| **特粗** | **条纹** | **条纹动画** | |
+| ![](docs/styles/style_xl_coloron.png) | ![](docs/styles/style_striped_coloron.png) | ![](docs/styles/style_animated_coloron.png) | |
+
 ## 快速开始
 
 ```

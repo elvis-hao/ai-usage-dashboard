@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-菲戈 AI 用量看板 v1 — 单文件 · 纯 Python 标准库 · 零 pip 依赖
+AI 用量看板 v1 — 单文件 · 纯 Python 标准库 · 零 pip 依赖
 
 用法:
   py usage_dashboard.py --scan [period]   CLI 文本输出（验证数据用，period 默认 today）
@@ -1248,7 +1248,7 @@ def cli_scan(period: str, use_cache: bool = True):
     costs, cost_note = estimate_cost(rows, prices)
 
     label = PERIOD_LABELS.get(period, period)
-    print(f"== 菲戈 AI 用量看板 · {label} · 生成于 {meta['generated_at']} ==")
+    print(f"== AI 用量看板 · {label} · 生成于 {meta['generated_at']} ==")
     cs = meta["codex_stats"]
     print(f"[Codex 扫描] 文件 {cs['files']}（新解析 {cs['parsed']} / 缓存 {cs['reused']}"
           f" / 孤儿 {cs.get('orphan_files', 0)}），记录 {cs['records']}，"

@@ -1,17 +1,13 @@
 {
- "_说明": "收藏夹数据。分类+条目；视觉复用 5021 Bookmarks 模块（左分类 list-group + 右卡片网格）。可增删改，重新生成即生效。",
+ "_说明": "收藏夹示例。分类+条目；视觉复用 Bookmarks 模块风格。改成你自己的链接即可。",
  "categories": [
   {
    "id": "console",
    "name": "模型控制台"
   },
   {
-   "id": "feige",
-   "name": "菲戈开发系统"
-  },
-  {
-   "id": "common",
-   "name": "常用"
+   "id": "demo",
+   "name": "示例"
   }
  ],
  "items": [
@@ -22,50 +18,14 @@
    "tags": [
     "GLM"
    ],
-   "note": "智谱 Coding Plan 用量/续期"
-  },
-  {
-   "title": "GLM 开放平台",
-   "url": "https://open.bigmodel.cn/console",
-   "category": "console",
-   "tags": [
-    "GLM"
-   ],
    "note": ""
   },
   {
-   "title": "阿里 Coding Plan",
-   "url": "https://bailian.console.aliyun.com/cn-beijing/subscription/coding-plan",
+   "title": "阿里百炼 Coding Plan",
+   "url": "https://bailian.console.aliyun.com/",
    "category": "console",
    "tags": [
     "阿里"
-   ],
-   "note": ""
-  },
-  {
-   "title": "阿里 Token Plan",
-   "url": "https://bailian.console.aliyun.com/cn-beijing/subscription/token-plan/personal",
-   "category": "console",
-   "tags": [
-    "阿里"
-   ],
-   "note": ""
-  },
-  {
-   "title": "Codex",
-   "url": "https://chatgpt.com/codex",
-   "category": "console",
-   "tags": [
-    "OpenAI"
-   ],
-   "note": ""
-  },
-  {
-   "title": "ChatGPT 用量",
-   "url": "https://chatgpt.com/#settings/Usage",
-   "category": "console",
-   "tags": [
-    "OpenAI"
    ],
    "note": ""
   },
@@ -79,16 +39,7 @@
    "note": ""
   },
   {
-   "title": "MiniMax 平台",
-   "url": "https://platform.minimax.cn/",
-   "category": "console",
-   "tags": [
-    "MiniMax"
-   ],
-   "note": ""
-  },
-  {
-   "title": "DeepSeek 用量/余额",
+   "title": "DeepSeek 用量",
    "url": "https://platform.deepseek.com/usage",
    "category": "console",
    "tags": [
@@ -97,151 +48,13 @@
    "note": ""
   },
   {
-   "title": "StepFun 平台",
-   "url": "https://platform.stepfun.com/",
-   "category": "console",
+   "title": "示例链接",
+   "url": "https://example.com/",
+   "category": "demo",
    "tags": [
-    "StepFun"
+    "示例"
    ],
-   "note": ""
-  },
-  {
-   "title": "SQLite",
-   "url": "https://sqlite.org/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "数据库"
-   ],
-   "note": "本地业务数据与模块独立数据使用的数据库引擎。"
-  },
-  {
-   "title": "PowerShell",
-   "url": "https://learn.microsoft.com/powershell/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "自动化"
-   ],
-   "note": "中央 dev.ps1 命令与项目生命周期自动化环境。"
-  },
-  {
-   "title": "Microsoft .NET",
-   "url": "https://dotnet.microsoft.com/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "运行时"
-   ],
-   "note": "菲戈开发系统的 .NET 应用、平台和动态模块运行时。"
-  },
-  {
-   "title": "Orchard Core",
-   "url": "https://orchardcore.net/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "CMS"
-   ],
-   "note": "菲戈开发系统的 Orchard 平台与模块能力。"
-  },
-  {
-   "title": "Tabler",
-   "url": "https://tabler.io/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Web",
-    "界面"
-   ],
-   "note": "Web 公共外壳与批准组件的设计基线。"
-  },
-  {
-   "title": "FullCalendar",
-   "url": "https://fullcalendar.io/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Web",
-    "日历"
-   ],
-   "note": "日历模块使用的界面组件。"
-  },
-  {
-   "title": "SortableJS",
-   "url": "https://sortablejs.github.io/Sortable/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Web",
-    "排序"
-   ],
-   "note": "待办和列表拖动排序使用的组件。"
-  },
-  {
-   "title": "HugeRTE",
-   "url": "https://hugerte.org/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Web",
-    "编辑器"
-   ],
-   "note": "文档模块使用的富文本编辑器。"
-  },
-  {
-   "title": "Android Developers",
-   "url": "https://developer.android.com/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Android"
-   ],
-   "note": "Android SDK、构建与应用开发官方入口。"
-  },
-  {
-   "title": "Kotlin",
-   "url": "https://kotlinlang.org/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Android",
-    "语言"
-   ],
-   "note": "Android 工程采用的开发语言与 Compose 插件来源。"
-  },
-  {
-   "title": "Gradle",
-   "url": "https://gradle.org/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Android",
-    "构建"
-   ],
-   "note": "Android 工程的构建系统。"
-  },
-  {
-   "title": "Jetpack Compose",
-   "url": "https://developer.android.com/compose",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Android",
-    "界面"
-   ],
-   "note": "菲戈 Android 产品采用的原生界面工具包。"
-  },
-  {
-   "title": "Microsoft Build of OpenJDK",
-   "url": "https://learn.microsoft.com/java/openjdk/",
-   "category": "feige",
-   "tags": [
-    "开发系统",
-    "Android",
-    "Java"
-   ],
-   "note": "当前 Android 构建实际使用的 Microsoft OpenJDK。"
+   "note": "演示备注"
   }
  ]
 }

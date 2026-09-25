@@ -1,29 +1,41 @@
 {
-  "records": [
+ "records": [
+  {
+   "task": "AI 用量看板：单文件静态页 + 多数据源额度/用量聚合",
+   "environment": "独立静态 HTML；Tabler dark·neutral·inverted（monochrome 灰阶合同）",
+   "candidates": [
     {
-      "task": "AI 用量看板 v5 重设计：4 Tab + 状态视觉升级",
-      "environment": "独立静态 HTML（无框架），菲戈设计库灰阶主题快照：Tabler dark · neutral · inverted，属性写在 <html>（与菲戈效率平台 _Layout 同合同）",
-      "candidates": [
-        { "asset": "case.dashboard", "entry": "/library/index.html", "reason": "统计卡片+分区+表格的完整页面结构基线" },
-        { "asset": "module.stats-cards", "entry": "/library/index.html", "reason": "指标卡 标签/主数值/辅助说明 的阅读顺序合同" },
-        { "asset": "case.datatables", "entry": "/library/datatables.html", "reason": "数据表格 card-table 结构与表头/合计行基线" },
-        { "asset": "case.page-progress", "entry": "/library/progress.html", "reason": "progressbg 变体：行背景即进度条（官方选材 tabler-admin-1.5.0/progress.html）" }
-      ],
-      "selected": [
-        { "assetId": "module.stats-cards", "how": "fragment" },
-        { "assetId": "case.dashboard", "how": "reference" },
-        { "assetId": "case.datatables", "how": "reference" },
-        { "assetId": "case.page-progress", "how": "reference" }
-      ],
-      "allowedDeviations": [
-        "灰阶合同优先：官方彩色仅作结构参考；进度条强度用不透明度表达",
-        "徽章一律 bg-secondary-lt 灰底，无彩色",
-        "单页工具无侧栏外壳；主题属性静态写在 <html>，不加载设计库 demo 页专用 design-theme.js",
-        "主题 CSS 为冻结快照（dashboard/css/，2026-09-25 取自母本 1.51），不接同步下发链路",
-        "改用 Tabler nav-tabs 做页面内 4 Tab 切换（概览/政策/收藏夹/明细）；当前时段横幅（大号字+下一切换倒计时）+ 按生效状态分组额度卡（当前生效卡白边框高亮、其他灰化）+ 每窗口行带 band 徽标（夜间/高峰/非高峰/限时/日常）",
-        "状态可视化：每张卡脚'数据 HH:MM' + 额度区标题'抓取 N/M 成功'汇总"
-      ],
-      "acceptance": "2026-09-25 四 Tab 真实数据渲染经菲戈浏览器确认：概览（时段横幅+分组额度卡）、政策（时段×厂商矩阵表）、收藏夹（分组药丸按钮）、明细（周期切换+模型统计表）。状态可视化：当前时段白边框高亮、未生效卡灰化、每窗口带 band 徽标、每卡脚数据时间、抓取成功汇总"
+     "asset": "tabler-admin progress.html",
+     "reason": "进度条变体（样式选择器来源）"
+    },
+    {
+     "asset": "Tabler nav-tabs / nav-pills",
+     "reason": "页签与周期切换"
+    },
+    {
+     "asset": "Bookmarks 模块视觉（左分类+右卡片网格）",
+     "reason": "收藏夹 Tab"
     }
-  ]
+   ],
+   "selected": [
+    {
+     "assetId": "tabler-admin progress.html",
+     "how": "reference"
+    },
+    {
+     "assetId": "Tabler nav-tabs",
+     "how": "reference"
+    },
+    {
+     "assetId": "Bookmarks 视觉",
+     "how": "reference"
+    }
+   ],
+   "allowedDeviations": [
+    "状态色(绿/黄/红)为受控局部偏离：仅额度进度条与剩余%数字，用原始调色板 bg-green/yellow/red；默认关闭=纯灰阶",
+    "设置面板为自绘窄侧栏（不引入 bootstrap js），持久化机制参考 theme-settings.js(localStorage)"
+   ],
+   "acceptance": "四 Tab + 设置面板 + 拖拽排序 + 样式选择器经截图确认；默认纯灰阶背景式"
+  }
+ ]
 }
