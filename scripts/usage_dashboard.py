@@ -1058,8 +1058,6 @@ def _quota_job_registry():
                                      lambda j: {"currency": "CNY", "available": float(j.get("balance", 0)),
                                                 "detail": {"累计赠送": j.get("total_voucher_balance")}},
                                      "stepfun"), "StepFun"),
-        "智谱资源包": via({"providerIds": ["glm-v2max"], "baseUrlHas": ["api.z.ai"]},
-                       _bigmodel_packages, "BigModel 资源包(glm-v2max)"),
     }
     for entry in load_custom_providers():
         if entry.get("type") == "newapi_billing":

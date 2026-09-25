@@ -586,8 +586,7 @@ def _quota_cards_html(quotas, rl, pol, now):
         cards.append(wrap("Codex", f'<span class="{bold.strip()} js-val" data-rem="{rem:.1f}">{rem:g}%</span>', body))
 
     order = ["GLM (9.22)", "GLM 官方 (BigModel Coding Max)", "阿里 Coding Plan",
-             "阿里 Token Plan", "Kimi", "MiniMax", "DeepSeek", "StepFun (阶跃星辰)",
-             "智谱资源包"]
+             "阿里 Token Plan", "Kimi", "MiniMax", "DeepSeek", "StepFun (阶跃星辰)"]
     order += [n for n in quotas if n not in order]
     for name in order:
         v = quotas.get(name)
