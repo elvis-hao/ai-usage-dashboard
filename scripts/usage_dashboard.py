@@ -608,23 +608,41 @@ def _glm_quota(key: str, host: str, label: str):
     return _fail(last or "未知错误")
 
 
-def _bigmodel_report(key: str):
-    """智谱开放平台账户报告。实测(2026-09-25)：/api/paas/v4/balance 已 404；
-    /api/biz/account/query-customer-account-report + 裸 key 可用。"""
-    url = "https://open.bigmodel.cn/api/biz/account/query-customer-account-report"
+def _bigmodel_packages(key: str):
+    """智谱资源包列表（bigmodel.cn 财务中心）。glm-v2max key 可直调（实测）。
+    显示生效中的包数量与明细；全部过期则如实标注。"""
     try:
-        j = _http_json(url, {"Authorization": key})
+        j = _http_json("https://bigmodel.cn/api/biz/tokenAccounts/list/my"
+                       "?pageNum=1&pageSize=50&filterEnabled=false",
+                       {"Authorization": key})
     except Exception as e:
         return _fail(_err(e))
-    if j.get("code") not in (0, 200, None) or not j.get("data"):
-        return _fail(f"业务码 {j.get('code')}：{str(j.get('msg') or '')[:60]}")
-    d = j["data"]
-    return {"ok": True, "kind": "balance", "currency": "CNY",
-            "available": _num(d.get("availableBalance")),
-            "detail": {"累计充值": _num(d.get("rechargeAmount")),
-                       "累计消费": _num(d.get("totalSpendAmount")),
-                       "赠送余额": _num(d.get("giveAmount"))},
-            "fetched_at": now_local().strftime("%Y-%m-%d %H:%M:%S")}
+    rows = j.get("rows") or []
+    if not rows and not j.get("total"):
+        return _fail("响应中无资源包数据")
+    active = [r for r in rows if r.get("status") in ("IN_EFFECT", "EFFECTIVE")]
+    expired = len(rows) - len(active)
+    if active:
+        windows = []
+        for r in active[:5]:
+            balance = r.get("tokenBalance") or r.get("availableBalance") or 0
+            magnitude = r.get("tokensMagnitude") or 0
+            name = r.get("resourcePackageName") or r.get("tokenNo") or "包"
+            consume = "次" if r.get("consumeType") == "TIMES" else "tok"
+            pct = (balance / magnitude * 100) if magnitude else None
+            windows.append({"label": name, "used_percent": round(100 - pct, 1) if pct else None,
+                            "used": magnitude - balance if magnitude else None,
+                            "quota": magnitude, "remaining": balance,
+                            "reset_at": _to_epoch(r.get("expirationTime")),
+                            "unit": consume})
+        return {"ok": True, "kind": "quota", "plan": f"{len(active)} 个生效",
+                "windows": windows,
+                "note": f"另有 {expired} 个已过期" if expired else None,
+                "fetched_at": now_local().strftime("%Y-%m-%d %H:%M:%S")}
+    else:
+        return {"ok": True, "kind": "quota", "plan": "0 个生效",
+                "windows": [], "note": f"全部 {len(rows)} 个资源包已过期",
+                "fetched_at": now_local().strftime("%Y-%m-%d %H:%M:%S")}
 
 
 def _balance_generic(key: str, url: str, extract, name: str):
@@ -1052,8 +1070,8 @@ def _quota_job_registry():
                                      lambda j: {"currency": "CNY", "available": float(j.get("balance", 0)),
                                                 "detail": {"累计赠送": j.get("total_voucher_balance")}},
                                      "stepfun"), "StepFun"),
-        "智谱钱包": via({"providerIds": ["bigmodel-open"], "baseUrlHas": ["open.bigmodel.cn"]},
-                       _bigmodel_report, "BigModel 按量账户"),
+        "智谱资源包": via({"providerIds": ["glm-v2max"], "baseUrlHas": ["api.z.ai"]},
+                       _bigmodel_packages, "BigModel 资源包(glm-v2max)"),
     }
     for entry in load_custom_providers():
         if entry.get("type") == "newapi_billing":
