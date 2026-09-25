@@ -228,87 +228,164 @@ function showPeriod(p){
 """
 
 # 中英字典：仅界面 chrome 词；动态数值/用户内容不翻译
+LANGS = ['zh', 'en', 'ja', 'ko', 'fr', 'de']
+LANG_LABELS = {"zh":"中","en":"EN","ja":"JA","ko":"KO","fr":"FR","de":"DE"}
+
 I18N = {
-    "概览": "Overview", "政策": "Policy", "收藏夹": "Bookmarks", "明细": "Details",
-    "额度 / 余额": "Quota / Balance", "政策情报": "Policy Intel", "分类": "Categories",
-    "全部收藏": "All", "模型控制台": "Model Consoles", "常用": "Frequent",
-    "调用次数": "Calls", "总 Token": "Total Tokens", "输出 Token": "Output Tokens", "费用": "Cost",
-    "来源": "Source", "渠道": "Channel", "模型": "Model", "调用": "Calls", "输入": "Input",
-    "输出": "Output", "合计": "Total", "时段": "Period", "常时": "Always",
-    "当前生效": "Active now", "不在时段内": "Out of window", "含未公开时段": "Undisclosed window",
-    "数据": "Data", "不可获得": "Unavailable", "剩余": "Left", "重置": "Reset",
-    "设置": "Settings", "重置为默认": "Reset", "主题基调": "Base tone", "主色": "Primary",
-    "圆角": "Radius", "字体": "Font", "进度条样式": "Progress style", "状态色": "Status color",
-    "今天": "Today", "昨天": "Yesterday", "近7天": "7d", "近30天": "30d", "本月": "Month", "全部": "All",
-    "5小时": "5h", "周": "Weekly", "月": "Monthly", "工具调用": "Tools", "总使用量": "Total usage",
-    "夜间": "Night", "高峰": "Peak", "非高峰": "Off-peak", "节假日（限时）": "Holiday (limited)",
-    "日常": "Daily", "周额度": "Weekly quota", "订阅总量": "Subscription total",
-    "基础设置": "Settings", "开": "On", "关": "Off",
-    "AI 用量中心": "AI Usage Center", "不限量": "Unlimited",
+    "概览": {"en":"Overview","ja":"概要","ko":"개요","fr":"Aperçu","de":"Übersicht"},
+    "政策": {"en":"Policy","ja":"ポリシー","ko":"정책","fr":"Politique","de":"Richtlinie"},
+    "收藏夹": {"en":"Bookmarks","ja":"ブックマーク","ko":"북마크","fr":"Favoris","de":"Lesezeichen"},
+    "明细": {"en":"Details","ja":"詳細","ko":"상세","fr":"Détails","de":"Details"},
+    "额度 / 余额": {"en":"Quota / Balance","ja":"割当 / 残高","ko":"한도 / 잔액","fr":"Quota / Solde","de":"Kontingent / Saldo"},
+    "政策情报": {"en":"Policy Intel","ja":"ポリシー情報","ko":"정책 정보","fr":"Renseignement politique","de":"Richtlinien-Intel"},
+    "分类": {"en":"Categories","ja":"分類","ko":"분류","fr":"Catégories","de":"Kategorien"},
+    "全部收藏": {"en":"All","ja":"すべて","ko":"전체","fr":"Tous","de":"Alle"},
+    "模型控制台": {"en":"Model Consoles","ja":"モデルコンソール","ko":"모델 콘솔","fr":"Consoles modèles","de":"Modell-Konsolen"},
+    "调用次数": {"en":"Calls","ja":"呼び出し","ko":"호출","fr":"Appels","de":"Aufrufe"},
+    "总 Token": {"en":"Total Tokens","ja":"合計トークン","ko":"총 토큰","fr":"Total tokens","de":"Tokens gesamt"},
+    "输出 Token": {"en":"Output Tokens","ja":"出力トークン","ko":"출력 토","fr":"Tokens sortie","de":"Ausgabe-Tokens"},
+    "费用": {"en":"Cost","ja":"コスト","ko":"비용","fr":"Coût","de":"Kosten"},
+    "来源": {"en":"Source","ja":"ソース","ko":"소스","fr":"Source","de":"Quelle"},
+    "渠道": {"en":"Channel","ja":"チャネル","ko":"채널","fr":"Canal","de":"Kanal"},
+    "模型": {"en":"Model","ja":"モデル","ko":"모델","fr":"Modèle","de":"Modell"},
+    "调用": {"en":"Calls","ja":"呼び出し","ko":"호출","fr":"Appels","de":"Aufrufe"},
+    "输入": {"en":"Input","ja":"入力","ko":"입력","fr":"Entrée","de":"Eingabe"},
+    "输出": {"en":"Output","ja":"出力","ko":"출력","fr":"Sortie","de":"Ausgabe"},
+    "合计": {"en":"Total","ja":"合計","ko":"합계","fr":"Total","de":"Gesamt"},
+    "时段": {"en":"Period","ja":"期間","ko":"기간","fr":"Période","de":"Zeitfenster"},
+    "常时": {"en":"Always","ja":"常時","ko":"상시","fr":"Permanent","de":"Immer"},
+    "当前生效": {"en":"Active now","ja":"現在有効","ko":"현재 유효","fr":"Actif","de":"Aktiv"},
+    "不在时段内": {"en":"Out of window","ja":"対象外","ko":"기간 밖","fr":"Hors fenêtre","de":"Außerhalb"},
+    "含未公开时段": {"en":"Undisclosed window","ja":"未公開時間帯含む","ko":"미공개 기간 포함","fr":"Période non divulguée","de":"Unbekanntes Zeitfenster"},
+    "数据": {"en":"Data","ja":"データ","ko":"데이터","fr":"Données","de":"Daten"},
+    "不可获得": {"en":"Unavailable","ja":"取得不可","ko":"획득 불가","fr":"Indisponible","de":"Nicht verfügbar"},
+    "剩余": {"en":"Left","ja":"残り","ko":"남은","fr":"Restant","de":"Verbleibend"},
+    "重置": {"en":"Reset","ja":"リセット","ko":"리셋","fr":"Réinit.","de":"Reset"},
+    "设置": {"en":"Settings","ja":"設定","ko":"설정","fr":"Paramètres","de":"Einstellungen"},
+    "重置为默认": {"en":"Reset","ja":"既定に戻す","ko":"기본으로","fr":"Réinit.","de":"Zurücksetzen"},
+    "主题基调": {"en":"Base tone","ja":"基調","ko":"기본 색상","fr":"Ton de base","de":"Basiston"},
+    "主色": {"en":"Primary","ja":"主色","ko":"주 색상","fr":"Primaire","de":"Primär"},
+    "圆角": {"en":"Radius","ja":"角丸","ko":"모서리","fr":"Arrondi","de":"Radius"},
+    "字体": {"en":"Font","ja":"フォント","ko":"글꼴","fr":"Police","de":"Schrift"},
+    "进度条样式": {"en":"Progress style","ja":"進捗スタイル","ko":"진행 막대 스타일","fr":"Style progression","de":"Fortschritts-Stil"},
+    "状态色": {"en":"Status color","ja":"ステータス色","ko":"상태 색상","fr":"Couleur d'état","de":"Statusfarbe"},
+    "今天": {"en":"Today","ja":"今日","ko":"오늘","fr":"Aujourd'hui","de":"Heute"},
+    "昨天": {"en":"Yesterday","ja":"昨日","ko":"어제","fr":"Hier","de":"Gestern"},
+    "近7天": {"en":"7d","ja":"7日間","ko":"7일","fr":"7 jours","de":"7 Tage"},
+    "近30天": {"en":"30d","ja":"30日間","ko":"30일","fr":"30 jours","de":"30 Tage"},
+    "本月": {"en":"Month","ja":"今月","ko":"이번 달","fr":"Ce mois","de":"Dieser Monat"},
+    "全部": {"en":"All","ja":"すべて","ko":"전체","fr":"Tout","de":"Alle"},
+    "5小时": {"en":"5h","ja":"5時間","ko":"5시간","fr":"5h","de":"5h"},
+    "周": {"en":"Weekly","ja":"週次","ko":"주간","fr":"Hebdo","de":"Wöchentl."},
+    "月": {"en":"Monthly","ja":"月次","ko":"월간","fr":"Mensuel","de":"Monatl."},
+    "工具调用": {"en":"Tools","ja":"ツール呼び出し","ko":"도구 호출","fr":"Outils","de":"Tools"},
+    "总使用量": {"en":"Total usage","ja":"総使用量","ko":"총 사용량","fr":"Utilisation totale","de":"Gesamtnutzung"},
+    "夜间": {"en":"Night","ja":"夜間","ko":"야간","fr":"Nuit","de":"Nacht"},
+    "高峰": {"en":"Peak","ja":"ピーク","ko":"피크","fr":"Pic","de":"Spitzenzeit"},
+    "非高峰": {"en":"Off-peak","ja":"オフピーク","ko":"오프피크","fr":"Heure creuse","de":"Nebenzeit"},
+    "节假日（限时）": {"en":"Holiday","ja":"休日限定","ko":"휴일 한정","fr":"Jour férié","de":"Feiertag"},
+    "日常": {"en":"Daily","ja":"日常","ko":"일상","fr":"Quotidien","de":"Täglich"},
+    "基础设置": {"en":"Settings","ja":"基本設定","ko":"기본 설정","fr":"Paramètres","de":"Grundeinstellungen"},
+    "开": {"en":"On","ja":"オン","ko":"켬","fr":"Activé","de":"Ein"},
+    "关": {"en":"Off","ja":"オフ","ko":"끔","fr":"Désactivé","de":"Aus"},
+    "AI 用量中心": {"en":"AI Usage Center","ja":"AI 使用量センター","ko":"AI 사용량 센터","fr":"Centre d'usage IA","de":"AI-Nutzungszentrum"},
+    "不限量": {"en":"Unlimited","ja":"無制限","ko":"무제한","fr":"Illimité","de":"Unbegrenzt"},
 }
+
+I18N_PREFIX = [
+    ["数据 ", {"en":"Data ","ja":"データ ","ko":"데이터 ","fr":"Données ","de":"Daten "}],
+    ["周额度", {"en":"Weekly quota","ja":"週間割当","ko":"주간 한도","fr":"Quota hebdo","de":"Wochenkontingent"}],
+    ["周 ", {"en":"Weekly ","ja":"週次 ","ko":"주간 ","fr":"Hebdo ","de":"Wö. "}],
+    ["5小时", {"en":"5h","ja":"5時間","ko":"5시간","fr":"5h","de":"5h"}],
+    ["7天", {"en":"7d","ja":"7日間","ko":"7일","fr":"7j","de":"7T"}],
+    ["MCP 每月额度", {"en":"MCP monthly","ja":"MCP月額","ko":"MCP 월별","fr":"MCP mensuel","de":"MCP monatl."}],
+    ["工具调用", {"en":"Tools","ja":"ツール","ko":"도구","fr":"Outils","de":"Tools"}],
+    ["总使用量", {"en":"Total usage","ja":"総使用量","ko":"총 사용량","fr":"Util. totale","de":"Gesamtn."}],
+    ["订阅总量", {"en":"Subscription total","ja":"サブ総量","ko":"구독 총량","fr":"Total abonnement","de":"Abo-Gesamt"}],
+    ["key 本月消费", {"en":"key monthly spend","ja":"key今月消費","ko":"key 이번달 소비","fr":"conso mensuelle clé","de":"key Monatsverbrauch"}],
+    ["key 剩余配额", {"en":"key remaining quota","ja":"key残り割当","ko":"key 남은 할당","fr":"quota restant clé","de":"key Restkontingent"}],
+    ["钱包余额（账户维度）", {"en":"Wallet balance (account)","ja":"財布残高(口座)","ko":"지갑 잔액(계정)","fr":"Solde portefeuille","de":"Wallet-Saldo (Konto)"}],
+    ["剩余 ", {"en":"Left ","ja":"残り ","ko":"남은 ","fr":"Restant ","de":"Verbl. "}],
+    ["重置 ", {"en":"Reset ","ja":"リセット ","ko":"리셋 ","fr":"Réinit. ","de":"Reset "}],
+    ["月 ", {"en":"Monthly ","ja":"月次 ","ko":"월간 ","fr":"Mensuel ","de":"Monatl. "}],
+    ["不可获得：", {"en":"Unavailable: ","ja":"取得不可：","ko":"획득 불가:","fr":"Indisp.: ","de":"Nicht verf.: "}],
+    ["业务码", {"en":"biz code","ja":"業務コード","ko":"비즈니스 코드","fr":"code métier","de":"Biz-Code"}],
+    ["身份验证失败", {"en":"auth failed","ja":"認証失敗","ko":"인증 실","fr":"échec auth","de":"Auth fehlgeschl."}],
+    ["会话", {"en":"session","ja":"セッション","ko":"세션","fr":"session","de":"Session"}],
+    ["百分比制（官方不给绝对量）", {"en":"percent-based (no absolute from vendor)","ja":"%制(ベンダー絶対値なし)","ko":"비율제(공급자 절대값 없음)","fr":"% (pas de valeur absolue)","de":"Prozent-basiert (keine Absolutwerte)"}],
+    ["剩余 29 天", {"en":"29 days left","ja":"残り29日","ko":"29일 남음","fr":"29 jours restants","de":"29 Tage übrig"}],
+    ["仅 DeepSeek 有价目", {"en":"DeepSeek-only pricing","ja":"DeepSeekのみ価格","ko":"DeepSeek만 가격","fr":"tarifs DeepSeek seul.","de":"nur DeepSeek Preisliste"}],
+    ["输入 ", {"en":"Input ","ja":"入力 ","ko":"입력 ","fr":"Entrée ","de":"Eingabe "}],
+    ["缓存读 ", {"en":"cache-read ","ja":"キャッシュ読 ","ko":"캐시읽기 ","fr":"cache-lu ","de":"Cache-gelesen "}],
+    ["含推理 ", {"en":"incl. reasoning ","ja":"推論含 ","ko":"추론 포함 ","fr":"dont raisonn. ","de":"inkl. Reasoning "}],
+    ["估算", {"en":"est.","ja":"推定","ko":"추정","fr":"est.","de":"gesch."}],
+]
 
 I18N_JS = """
 (function(){
   var DICT = __DICT__;
   var PREFIX = __PREFIX__;
-  var nodes = [];
-  function cd2en(s){
-    return s.replace(/(\\d+)天(\\d+)小时/g,'$1d$2h')
-            .replace(/(\\d+)小时(\\d+)分/g,'$1h$2m')
-            .replace(/(\\d+)分钟/g,'$1m')
-            .replace(/(\\d+)天/g,'$1d')
-            .replace(/百分比制（官方不给绝对量）/g,'percent-based (vendor gives no absolute)')
-            .replace(/待重置/g,'due');
+  var LANGS = ["zh","en","ja","ko","fr","de"];
+  var TITLES = {"zh":"AI 用量中心","en":"AI Usage Center","ja":"AI 使用量センター","ko":"AI 사용량 센터","fr":"Centre d'usage IA","de":"AI-Nutzungszentrum"};
+  var WDS = {
+    "zh":["周一","周二","周三","周四","周五","周六","周日"],
+    "en":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+    "ja":["月","火","水","木","金","土","日"],
+    "ko":["월","화","수","목","금","토","일"],
+    "fr":["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"],
+    "de":["Mo","Di","Mi","Do","Fr","Sa","So"]
+  };
+  function cdXlat(lang, s){
+    if(lang==='zh') return s;
+    s = s.replace(/(\\d+)天(\\d+)小时/g, lang==='ja'?'$1日$2時間': lang==='ko'?'$1일$2시간': lang==='fr'?'$1j $2h': lang==='de'?'$1T $2h': '$1d$2h');
+    s = s.replace(/(\\d+)小时(\\d+)分/g, lang==='ja'?'$1時間$2分': lang==='ko'?'$1시간$2분': lang==='fr'?'$1h $2m': lang==='de'?'$1h $2m': '$1h$2m');
+    s = s.replace(/(\\d+)分钟/g, lang==='ja'?'$1分': lang==='ko'?'$1분': lang==='fr'?'$1min': lang==='de'?'$1min': '$1m');
+    s = s.replace(/(\\d+)天/g, lang==='ja'?'$1日': lang==='ko'?'$1일': lang==='fr'?'$1j': lang==='de'?'$1T': '$1d');
+    s = s.replace(/待重置/g, lang==='ja'?'リセット待ち': lang==='ko'?'재설정 대기': lang==='fr'?'à réinit.': lang==='de'?'wird zurückgesetzt': 'due');
+    s = s.replace(/百分比制（官方不给绝对量）/g, lang==='ja'?'%制(ベンダー絶対値なし)': lang==='ko'?'비율제(공급자 절대값 없음)': lang==='fr'?'proportionnel (pas de valeur absolue)': lang==='de'?'Prozent-basiert (keine Absolutwerte)': 'percent-based (vendor gives no absolute)');
+    return s;
   }
-  function transform(zh){
-    if(DICT[zh]!==undefined) return DICT[zh];
+  function transform(l, zh){
+    if(DICT[zh] && DICT[zh][l]!==undefined) return DICT[zh][l];
     var out=zh;
     for(var i=0;i<PREFIX.length;i++){
-      if(out.indexOf(PREFIX[i][0])===0){ out = PREFIX[i][1] + out.slice(PREFIX[i][0].length); break; }
+      if(out.indexOf(PREFIX[i][0])===0){
+        var tr = (PREFIX[i][1][l] || PREFIX[i][1]['en'] || PREFIX[i][1]);
+        out = tr + out.slice(PREFIX[i][0].length);
+        break;
+      }
     }
-    return cd2en(out);
+    return cdXlat(l, out);
   }
+  var nodes = [];
   function collect(){
     document.querySelectorAll('body *').forEach(function(el){
       el.childNodes.forEach(function(n){
-        if(n.nodeType===3 && n.textContent.trim()){ nodes.push({n:n, zh:n.textContent});
-        }
+        if(n.nodeType===3 && n.textContent.trim()){ nodes.push({n:n, zh:n.textContent}); }
       });
     });
   }
-  function lang(){ return localStorage.getItem('aud-lang') || 'zh'; }
+  function lang(){ var v=localStorage.getItem('aud-lang'); return LANGS.indexOf(v)>=0?v:'zh'; }
   function applyLang(l){
-    nodes.forEach(function(o){ o.n.textContent = (l==='en'? transform(o.zh) : o.zh); });
-    document.documentElement.lang = (l==='en' ? 'en' : 'zh-CN');
-    document.title = (l==='en' ? 'AI Usage Center' : 'AI 用量中心');
-    var b=document.getElementById('langBtn'); if(b) b.textContent = (l==='en' ? '中文' : 'EN');
-    ['banner','cur','gen','qsub','psub'].forEach(function(pre){
-      var zh=document.getElementById(pre+'Zh'), en=document.getElementById(pre+'En');
-      if(zh) zh.style.display = (l==='en'?'none':'');
-      if(en) en.style.display = (l==='en'?'':'none');
+    nodes.forEach(function(o){ o.n.textContent = (l==='zh'? o.zh : transform(l, o.zh)); });
+    document.documentElement.lang = (l==='zh'?'zh-CN':l);
+    document.title = TITLES[l] || TITLES.zh;
+    var b=document.getElementById('langBtn'); if(b) b.textContent = (l==='zh'?'中文':l.toUpperCase());
+    document.querySelectorAll('[data-lang]').forEach(function(el){
+      el.style.display = (el.getAttribute('data-lang')===l?'':'none');
     });
   }
   window.addEventListener('DOMContentLoaded', function(){
     collect();
     var b=document.getElementById('langBtn');
-    if(b) b.onclick=function(){ var l=(lang()==='zh'?'en':'zh'); localStorage.setItem('aud-lang',l); applyLang(l); };
+    if(b) b.onclick=function(){
+      var cur=lang(), idx=LANGS.indexOf(cur), nxt=LANGS[(idx+1)%LANGS.length];
+      localStorage.setItem('aud-lang',nxt); applyLang(nxt);
+    };
     applyLang(lang());
   });
 })();
 """
-
-I18N_PREFIX = [
-    ["数据 ", "Data "], ["周额度", "Weekly quota"], ["周 ", "Weekly "], ["5小时", "5h"], ["7天", "7d"],
-    ["MCP 每月额度", "MCP monthly"], ["工具调用", "Tools"], ["总使用量", "Total usage"],
-    ["订阅总量", "Subscription total"], ["key 本月消费", "key monthly spend"],
-    ["key 剩余配额", "key remaining"], ["钱包余额（账户维度）", "Wallet balance (account)"],
-    ["剩余 ", "Left "], ["重置 ", "Reset "], ["月 ", "Monthly "],
-    ["不可获得：", "Unavailable: "], ["业务码", "biz code"], ["身份验证失败", "auth failed"],
-    ["会话", "session"], ["百分比制（官方不给绝对量）", "percent-based (no absolute from vendor)"],
-    ["剩余 29 天", "29 days left"], ["仅 DeepSeek 有价目", "DeepSeek-only pricing"],
-    ["输入 ", "Input "], ["缓存读 ", "cache-read "], ["含推理 ", "incl. reasoning "],
-    ["估算", "est."],
-]
 
 SETTINGS_JS = """
 (function(){
@@ -320,7 +397,7 @@ SETTINGS_JS = """
     font:['sans-serif','serif','monospace','comic']
   };
   var DEF = {base:'neutral', primary:'inverted', radius:'1', font:'sans-serif',
-             pstyle:'progressbg', statuscolor:'off'};
+             pstyle:'progressbg', statuscolor:'off', lang:'zh'};
   function get(k){ var v=LS('aud-'+k); return (v!==null&&v!==undefined)?v:DEF[k]; }
   function applyTheme(){
     ['base','primary','radius','font'].forEach(function(k){
@@ -343,8 +420,7 @@ SETTINGS_JS = """
   }
   function applyProgressStyle(){
     var s=get('pstyle');
-    document.documentElement.setAttribute('data-pstyle', s);
-    document.querySelectorAll('.qbar-alt').forEach(function(p){
+    document.querySelectorAll('.progressbg .progress').forEach(function(p){
       p.classList.remove('progress-sm','progress-lg','progress-xl');
       var bar=p.querySelector('.progress-bar'); if(!bar) return;
       bar.classList.remove('progress-bar-striped','progress-bar-animated');
@@ -399,9 +475,10 @@ SETTINGS_JS = """
       r.checked = (get(r.name)===r.value);
       r.addEventListener('change', function(){
         LS('aud-'+r.name, r.value);
-        if(['base','primary','radius','font'].indexOf(r.name)>=0) applyTheme();
+        if(['base','primary','radius','font','lang'].indexOf(r.name)>=0) applyTheme();
         if(r.name==='pstyle') applyProgressStyle();
         if(r.name==='statuscolor') applyStatusColor();
+        if(r.name==='lang'){ var l=r.value; localStorage.setItem('aud-lang',l); applyLangFromSettings(l); }
       });
     });
     var reset=document.getElementById('settingsReset');
@@ -411,8 +488,10 @@ SETTINGS_JS = """
       location.reload();
     };
   }
+  function applyLangFromSettings(l){
+    if(typeof applyLang==='function') applyLang(l);
+  }
   window.addEventListener('DOMContentLoaded', function(){
-    showTab('overview'); showPeriod('today');
     applyTheme(); applyProgressStyle(); bindPanel(); initDrag(); initBookmarkFilter();
     applyOrder('quota','#quotaGrid'); applyOrder('links','#linksGrid');
   });
@@ -431,6 +510,10 @@ def _radio_group(name, label, options, checked):
             f'<div>{items}</div></div>')
 
 
+def _lang_options():
+    return [("zh","中文(默认)"),("en","English"),("ja","日本語"),("ko","한국어"),("fr","Français"),("de","Deutsch")]
+
+
 def _settings_html():
     return f"""
 <div class="settings-backdrop" id="settingsBackdrop"></div>
@@ -443,6 +526,8 @@ def _settings_html():
  {_radio_group("primary", "主色", [("inverted","反转(默认)"),("blue","blue"),("green","green"),("red","red"),("yellow","yellow"),("purple","purple")], "inverted")}
  {_radio_group("radius", "圆角", [("0","0"),("0.5","0.5"),("1","1(默认)"),("1.5","1.5"),("2","2")], "1")}
  {_radio_group("font", "字体", [("sans-serif","无衬线(默认)"),("serif","衬线"),("monospace","等宽"),("comic","comic")], "sans-serif")}
+ <hr class="my-3">
+ {_radio_group("lang", "语言 Language", _lang_options(), "zh")}
  <hr class="my-3">
  {_radio_group("pstyle", "进度条样式", [("progressbg","背景式(当前)"),("sm","细条"),("lg","粗条"),("xl","特粗"),("striped","条纹"),("animated","条纹动画")], "progressbg")}
  {_radio_group("statuscolor", "状态色(剩余>60绿/20-60黄/<20红)", [("on","开"),("off","关(纯灰阶)")], "off")}
@@ -609,12 +694,13 @@ def _policies_html(pol, now):
         f'（核实 {pol.get("updated_at", "—")}）</div>' if s.startswith("http")
         else f'<div>[{i + 1}] {s}（核实 {pol.get("updated_at", "—")}）</div>'
         for i, s in enumerate(sources))
-    now_line = (f'<div class="fz-12 text-secondary mb-2"><span id="psubZh">现在 {now.strftime("%H:%M")} ｜ '
-                f'当前生效：{"、".join(active_bands) if active_bands else "无时段性政策"} ｜ '
-                f'已核实快照不自动抓取；政策变动后核实更新 data\\policies.json</span>'
-                f'<span id="psubEn" style="display:none">Now {now.strftime("%H:%M")} | active: '
-                f'{", ".join(active_bands) if active_bands else "none"} | '
-                f'verified snapshot, not auto-fetched; update data\\policies.json on change</span></div>')
+    psub_zh = f'现在 {now.strftime("%H:%M")} ｜ 当前生效：{"、".join(active_bands) if active_bands else "无时段性政策"} ｜ 已核实快照不自动抓取；政策变动后核实更新 data\\policies.json'
+    psub_en = f'Now {now.strftime("%H:%M")} | active: {", ".join(active_bands) if active_bands else "none"} | verified snapshot, not auto-fetched; update data\\policies.json on change'
+    psub_ja = f'現在 {now.strftime("%H:%M")} ｜ 生效中：{"、".join(active_bands) if active_bands else "なし"} ｜ 確定スナップショット(自動取得なし)、変動時は data\\policies.json を更新'
+    psub_ko = f'현재 {now.strftime("%H:%M")} ｜ 활성화: {", ".join(active_bands) if active_bands else "없음"} ｜ 확인 스냅(자동 갱신 없음), 변경 시 data\\policies.json 업데이트'
+    psub_fr = f'Maintenant {now.strftime("%H:%M")} | actif: {", ".join(active_bands) if active_bands else "aucun"} | instantané vérifié (non auto-récupéré) ; maj data\\policies.json au changement'
+    psub_de = f'Jetzt {now.strftime("%H:%M")} | aktiv: {", ".join(active_bands) if active_bands else "keine"} | verifizierter Snapshot (kein Auto-Fetch); data\\policies.json bei Änderung aktual'
+    now_line = f'<div class="fz-12 text-secondary mb-2">{_lang_spans(psub_zh, {"en":psub_en,"ja":psub_ja,"ko":psub_ko,"fr":psub_fr,"de":psub_de})}</div>'
     return (now_line +
             '<div class="card"><div class="table-responsive"><table class="table card-table">'
             f'<thead><tr><th>时段</th>{"".join(f"<th>{p}</th>" for p in PROVIDER_COLS)}</tr></thead>'
@@ -666,7 +752,15 @@ def _bookmarks_html(bm):
 </div>'''
 
 
-def _panel_html(p, pd, period_labels):
+def _lang_spans(zh_text, trs):
+    """生成 6 语种 data-lang span：zh 默认显示，其他隐藏；applyLang 按当前 lang 切换可见。"""
+    spans = [f'<span data-lang="zh">{zh_text}</span>']
+    for l in ['en','ja','ko','fr','de']:
+        spans.append(f'<span data-lang="{l}" style="display:none">{trs.get(l, zh_text)}</span>')
+    return "".join(spans)
+
+
+def _panel_html(p, pd, period_labels, now):
     t = pd["totals"]
     costs = pd["costs"]
     cost_sum = sum(costs.values())
@@ -742,7 +836,7 @@ def render_html(ctx):
         f'onclick="showPeriod(\'{p}\'); return false;" href="#">{period_labels[p]}</a></li>'
         for p in periods)
     period_tabs = f'<ul class="nav nav-pills mb-3">{period_tabs}</ul>'
-    panels = "".join(f'<div class="panel" id="panel-{p}">{_panel_html(p, periods_data[p], period_labels)}</div>'
+    panels = "".join(f'<div class="panel" id="panel-{p}">{_panel_html(p, periods_data[p], period_labels, now)}</div>'
                      for p in periods)
 
     active_bands = _active_bands(pol, now)
@@ -780,7 +874,13 @@ def render_html(ctx):
  <div class="row align-items-center w-100">
   <div class="col">
    <h2 class="page-title mb-1">AI 用量中心</h2>
-   <div class="fz-12 text-secondary gen"><span id="genZh">生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新</span><span id="genEn" style="display:none">Generated {gen} | fetch {q_ok}/{q_all} ok | regenerate to refresh</span></div>
+   <div class="fz-12 text-secondary gen">{_lang_spans(
+    f"生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新",
+    {"en": f"Generated {gen} | fetch {q_ok}/{q_all} ok | regenerate to refresh",
+     "ja": f"生成 {gen} ｜ 取得 {q_ok}/{q_all} 成功 ｜ 再生成で更新",
+     "ko": f"생성 {gen} | 획득 {q_ok}/{q_all} 성공 | 재생성으로 갱신",
+     "fr": f"Généré {gen} | récup {q_ok}/{q_all} ok | régénérer pour rafraîchir",
+     "de": f"Erzeugt {gen} | Abruf {q_ok}/{q_all} ok | neu erzeugen zum Aktualisieren"})}</div>
   </div>
   <div class="col-auto">
    <button class="btn btn-outline-secondary btn-sm me-1" id="langBtn">EN</button>
@@ -790,11 +890,28 @@ def render_html(ctx):
 </div>
 {section_tabs}
 <div class="tab-pane active" id="pane-overview">
- <div class="banner-now" id="bannerZh">现在 {now.strftime("%H:%M")} {wd_zh} ｜ {nt_cd}后（{nt_time}）{nt_desc}</div>
- <div class="banner-now" id="bannerEn" style="display:none">Now {now.strftime("%H:%M")} {WD_EN[now.weekday()]} | in {nt_cd_en} ({nt_time}) {nt_desc_en}</div>
- <div class="fz-12 text-secondary mt-1"><span id="curZh">当前生效：{banner_detail}</span><span id="curEn" style="display:none">Active: {banner_detail_en}</span></div>
+  <div class="banner-now">{_lang_spans(
+    f"现在 {now.strftime('%H:%M')} {wd_zh} ｜ {nt_cd}后（{nt_time}）{nt_desc}",
+    {"en": f"Now {now.strftime('%H:%M')} {WD_EN[now.weekday()]} | in {nt_cd_en} ({nt_time}) {nt_desc_en}",
+     "ja": f"現在 {now.strftime('%H:%M')} ｜ {nt_cd}後（{nt_time}）{nt_desc}",
+     "ko": f"현재 {now.strftime('%H:%M')} ｜ {nt_cd} 후（{nt_time}）{nt_desc}",
+     "fr": f"Maintenant {now.strftime('%H:%M')} | dans {nt_cd_en} ({nt_time}) {nt_desc_en}",
+     "de": f"Jetzt {now.strftime('%H:%M')} | in {nt_cd_en} ({nt_time}) {nt_desc_en}"})}</div>
+ <div class="fz-12 text-secondary mt-1">{_lang_spans(
+    f"当前生效：{banner_detail}",
+    {"en": f"Active: {banner_detail_en}",
+     "ja": f"生效中：{banner_detail}",
+     "ko": f"활성화: {banner_detail_en}",
+     "fr": f"Actif: {banner_detail_en}",
+     "de": f"Aktiv: {banner_detail_en}"})}</div>
  <h3 class="mt-4 mb-2" style="font-size:1rem"><span data-zh="额度 / 余额" data-en="Quota / Balance">额度 / 余额</span>
-  <span class="text-secondary fw-normal fz-12"><span id="qsubZh">（每卡脚"数据 HH:MM"=该源取数时刻；不可获得卡显示原因）</span><span id="qsubEn" style="display:none">("Data HH:MM" per card = fetch time; unavailable cards show reason)</span></span></h3>
+  <span class="text-secondary fw-normal fz-12">{_lang_spans(
+    "（每卡脚\"数据 HH:MM\"=该源取数时刻；不可获得卡显示原因）",
+    {"en": "(\"Data HH:MM\" per card = fetch time; unavailable cards show reason)",
+     "ja": "（各カードの「データ HH:MM」＝取得時刻；取得不可は理由表示）",
+     "ko": "(각 카드 \"데이터 HH:MM\"=획득 시각; 획득 불가 시 사유 표시)",
+     "fr": "(« Données HH:MM » par carte = heure de récupération ; les indisponibles affichent la raison)",
+     "de": "(„Daten HH:MM\" pro Karte = Abrufzeit; nicht verfügbare zeigen Grund)"})}</span></h3>
  <div class="row row-cards g-2" id="quotaGrid">{_quota_cards_html(quotas, rl, pol, now)}</div>
 </div>
 <div class="tab-pane" id="pane-policy">
