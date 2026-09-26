@@ -873,14 +873,7 @@ def render_html(ctx):
 <div class="page-header">
  <div class="row align-items-center w-100">
   <div class="col">
-   <h2 class="page-title mb-1">AI 用量中心</h2>
-   <div class="fz-12 text-secondary gen">{_lang_spans(
-    f"生成 {gen} ｜ 抓取 {q_ok}/{q_all} 成功 ｜ 重新生成即刷新",
-    {"en": f"Generated {gen} | fetch {q_ok}/{q_all} ok | regenerate to refresh",
-     "ja": f"生成 {gen} ｜ 取得 {q_ok}/{q_all} 成功 ｜ 再生成で更新",
-     "ko": f"생성 {gen} | 획득 {q_ok}/{q_all} 성공 | 재생성으로 갱신",
-     "fr": f"Généré {gen} | récup {q_ok}/{q_all} ok | régénérer pour rafraîchir",
-     "de": f"Erzeugt {gen} | Abruf {q_ok}/{q_all} ok | neu erzeugen zum Aktualisieren"})}</div>
+  <h2 class="page-title mb-1">AI 用量中心</h2>
   </div>
   <div class="col-auto">
    <button class="btn btn-outline-secondary btn-sm me-1" id="langBtn">EN</button>
@@ -913,6 +906,15 @@ def render_html(ctx):
      "fr": "(« Données HH:MM » par carte = heure de récupération ; les indisponibles affichent la raison)",
      "de": "(„Daten HH:MM\" pro Karte = Abrufzeit; nicht verfügbare zeigen Grund)"})}</span></h3>
  <div class="row row-cards g-2" id="quotaGrid">{_quota_cards_html(quotas, rl, pol, now)}</div>
+ <div class="mt-2 d-flex align-items-center gap-2 py-1" style="border-top:1px solid var(--tblr-border-color,#333)">
+   <span class="d-inline-flex align-items-center">
+     <span class="rounded-circle d-inline-block" style="width:.5rem;height:.5rem;background:{'#22c55e' if q_ok == q_all else ('#eab308' if q_ok > 0 else '#ef4444')};margin-right:.375rem"></span>
+     <span class="fz-12 fw-medium">{"全部正常" if q_ok == q_all else f"部分失败({q_all - q_ok})" if q_ok > 0 else "全部失败"}</span>
+   </span>
+   <span class="fz-12 text-secondary">· 抓取 {q_ok}/{q_all}</span>
+   <span class="fz-12 text-secondary">· {_lang_spans(f"生成 {gen}", {"en": f"Generated {gen}", "ja": f"生成 {gen}", "ko": f"생성 {gen}", "fr": f"Généré {gen}", "de": f"Erzeugt {gen}"})}</span>
+   <span class="fz-12 text-secondary ms-auto">{_lang_spans("数据≤15分钟新鲜（自动刷新）", {"en": "Data ≤15min fresh (auto)", "ja": "データ≤15分（自動更新）", "ko": "데이터 ≤15분 (자동)", "fr": "Données ≤15min (auto)", "de": "Daten ≤15min (auto)"})}</span>
+ </div>
 </div>
 <div class="tab-pane" id="pane-policy">
  {_policies_html(pol, now)}
